@@ -1,24 +1,37 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# KREZOEMA Frontend (Next.js)
 
-## Getting Started
-
-First, run the development server:
+## Setup Setelah Clone
 
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Buat file environment dari template
+cp .env.example .env.local      # Linux/Mac
+# copy .env.example .env.local  # Windows
+
+# 3. Edit .env.local jika URL backend berbeda dari default:
+# NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+
+# 4. Jalankan development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka [http://localhost:3000](http://localhost:3000) di browser.
 
-## Learn More
+> **Catatan Logo**: File `public/logo-krezoema.png` yang ada di repository adalah
+> placeholder 1×1 pixel transparan. Ganti dengan file logo KREZOEMA yang asli.
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
--   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
--   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run dev      # Development server
+npm run build    # Production build
+npm run start    # Production server
+npm run lint     # ESLint check
+```
+
+## Dokumentasi
+
+-   [Next.js Documentation](https://nextjs.org/docs)
+-   [Setup lengkap project (root README)](../README.md)
