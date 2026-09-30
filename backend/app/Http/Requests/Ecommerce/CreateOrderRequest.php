@@ -25,6 +25,7 @@ class CreateOrderRequest extends FormRequest
         return [
             'address_id' => ['required', 'integer'],
             'shipping_method' => ['required', 'string', Rule::in(['jnt', 'jne'])],
+            'payment_method' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string', 'max:500'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer'],

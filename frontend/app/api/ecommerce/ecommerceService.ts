@@ -211,18 +211,60 @@ export const ecommerceService = {
   },
 
   /**
-   * Update order status
+   * Update order status and/or payment status
    * PUT /api/ecommerce/admin/orders/{id}
    */
   async updateOrderStatus(
     id: number,
-    status: string,
-    notes?: string
+    status?: string,
+    notes?: string,
+    paymentStatus?: string
   ): Promise<EcommerceOrder> {
-    const response = await apiClient.put(`/ecommerce/admin/orders/${id}`, {
-      status,
-      notes,
-    });
+    const payload: Record<string, any> = {};
+    if (status) payload.status = status;
+    if (paymentStatus) payload.payment_status = paymentStatus;
+    if (notes !== undefined) payload.notes = notes;
+
+    const response = await apiClient.put(`/ecommerce/admin/orders/${id}`, payload);
+    return response.data?.data ?? response.data;
+  },
+
+  /**
+   * Get orders for authenticated customer
+   * GET /api/ecommerce/orders
+   */
+  async getCustomerOrders(): Promise<EcommerceOrder[]> {
+    const response = await apiClient.get('/ecommerce/orders');
+    return response.data?.data ?? response.data ?? [];
+  },
+
+  /**
+   * Get single order for authenticated customer
+   * GET /api/ecommerce/orders/{id}
+   */
+  async getCustomerOrder(id: number): Promise<EcommerceOrder> {
+    const response = await apiClient.get(`/ecommerce/orders/${id}`);
+    return response.data?.data ?? response.data;
+  },
+
+  /**
+   * Upload transfer proof for an order (customer only).
+   * Allowed on payment_status: unpaid or rejected.
+   * Automatically transitions payment_status to waiting_verification.
+   * POST /api/ecommerce/orders/{id}/upload-proof
+   */
+  async uploadTransferProof(orderId: number, file: File): Promise<EcommerceOrder> {
+    const formData = new FormData();
+    formData.append('transfer_proof', file);
+
+    const response = await apiClient.post(
+      `/ecommerce/orders/${orderId}/upload-proof`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
+    );
     return response.data?.data ?? response.data;
   },
 };
+

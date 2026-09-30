@@ -25,6 +25,17 @@ class OrderResource extends JsonResource
             ] : null,
             'order_number' => $this->order_number,
             'status' => $this->status,
+            'payment_status' => $this->payment_status ?? 'unpaid',
+            'payment_method' => $this->payment_method ?? 'manual_transfer',
+            'payment_details' => [
+                'bank_name' => config('ecommerce.manual_transfer.bank_name', 'BCA'),
+                'account_number' => config('ecommerce.manual_transfer.account_number', '8290123456'),
+                'account_holder' => config('ecommerce.manual_transfer.account_holder', 'KREZOEMA CRAFT'),
+                'expires_at' => $this->created_at ? $this->created_at->copy()->addHours((int) config('ecommerce.manual_transfer.payment_deadline_hours', 24))->toIso8601String() : null,
+            ],
+            'transfer_proof_url' => $this->transfer_proof
+                ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->transfer_proof)
+                : null,
             'shipping_method' => $this->shipping_method,
             'shipping_name' => $this->shipping_name,
             'shipping_whatsapp' => $this->shipping_whatsapp,

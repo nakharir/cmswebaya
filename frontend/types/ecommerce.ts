@@ -145,6 +145,12 @@ export type OrderStatus =
   | 'completed'
   | 'cancelled';
 
+export type PaymentStatus =
+  | 'unpaid'
+  | 'waiting_verification'
+  | 'paid'
+  | 'rejected';
+
 export interface EcommerceOrderItem {
   id: number;
   order_id: number;
@@ -172,6 +178,8 @@ export interface EcommerceOrder {
   customer_id: number;
   order_number: string;
   status: OrderStatus;
+  payment_status: PaymentStatus;
+  payment_method?: string;
   shipping_method: string;
   shipping_name: string;
   shipping_whatsapp: string;
@@ -193,6 +201,13 @@ export interface EcommerceOrder {
   subtotal: number;
   shipping_cost: number;
   total: number;
+  transfer_proof_url?: string | null;
+  payment_details?: {
+    bank_name: string;
+    account_number: string;
+    account_holder: string;
+    expires_at: string | null;
+  };
   items?: EcommerceOrderItem[];
   customer?: EcommerceCustomerSnapshot | null;
   created_at: string;
@@ -202,6 +217,7 @@ export interface EcommerceOrder {
 export interface OrderListParams {
   search?: string;
   status?: string;
+  payment_status?: string;
   page?: number;
   per_page?: number;
 }

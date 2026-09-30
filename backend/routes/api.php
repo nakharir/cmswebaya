@@ -77,6 +77,8 @@ Route::prefix('ecommerce')->group(function () {
         Route::get('/orders', [\App\Http\Controllers\Ecommerce\OrderController::class, 'index']);
         Route::post('/orders', [\App\Http\Controllers\Ecommerce\OrderController::class, 'store']);
         Route::get('/orders/{id}', [\App\Http\Controllers\Ecommerce\OrderController::class, 'show']);
+        Route::post('/orders/{id}/confirm-payment', [\App\Http\Controllers\Ecommerce\OrderController::class, 'confirmPayment']);
+        Route::post('/orders/{id}/upload-proof', [\App\Http\Controllers\Ecommerce\OrderController::class, 'uploadTransferProof']);
     });
 
     // Admin Foundation Endpoints

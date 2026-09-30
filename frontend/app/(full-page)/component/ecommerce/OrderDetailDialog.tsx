@@ -17,10 +17,12 @@ import {
   Truck,
   CheckCircle2,
   FileText,
+  Image as ImageIcon,
 } from 'lucide-react';
-import { EcommerceOrder, EcommerceOrderItem, OrderStatus } from '@/types/ecommerce';
+import { EcommerceOrder, EcommerceOrderItem, OrderStatus, PaymentStatus } from '@/types/ecommerce';
 import { ecommerceService } from '@/app/api/ecommerce/ecommerceService';
 import { formatRupiah, extractErrorMessage } from '@/app/api/ecommerce/client';
+import { OrderStatusTimeline } from './OrderStatusTimeline';
 
 interface OrderDetailDialogProps {
   visible: boolean;
@@ -37,6 +39,45 @@ const STATUS_OPTIONS: { label: string; value: OrderStatus }[] = [
   { label: 'Selesai (Completed)', value: 'completed' },
   { label: 'Dibatalkan (Cancelled)', value: 'cancelled' },
 ];
+
+export const PAYMENT_STATUS_OPTIONS: { label: string; value: PaymentStatus }[] = [
+  { label: 'Belum Dibayar (Unpaid)', value: 'unpaid' },
+  { label: 'Menunggu Verifikasi (Waiting)', value: 'waiting_verification' },
+  { label: 'Sudah Dibayar (Paid)', value: 'paid' },
+  { label: 'Ditolak (Rejected)', value: 'rejected' },
+];
+
+export const getPaymentStatusSeverity = (
+  status: string
+): 'warning' | 'info' | 'success' | 'danger' => {
+  switch (status) {
+    case 'unpaid':
+      return 'warning';
+    case 'waiting_verification':
+      return 'info';
+    case 'paid':
+      return 'success';
+    case 'rejected':
+      return 'danger';
+    default:
+      return 'info';
+  }
+};
+
+export const getPaymentStatusLabel = (status: string): string => {
+  switch (status) {
+    case 'unpaid':
+      return 'Belum Dibayar';
+    case 'waiting_verification':
+      return 'Menunggu Verifikasi';
+    case 'paid':
+      return 'Sudah Dibayar';
+    case 'rejected':
+      return 'Ditolak';
+    default:
+      return status;
+  }
+};
 
 export const getOrderStatusSeverity = (
   status: string
@@ -85,6 +126,8 @@ export const OrderDetailDialog: React.FC<OrderDetailDialogProps> = ({
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('pending');
   const [adminNotes, setAdminNotes] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<PaymentStatus>('unpaid');
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -92,6 +135,7 @@ export const OrderDetailDialog: React.FC<OrderDetailDialogProps> = ({
     if (order) {
       setSelectedStatus(order.status);
       setAdminNotes(order.notes || '');
+      setSelectedPaymentStatus(order.payment_status || 'unpaid');
       setErrorMessage(null);
       setSuccessMessage(null);
     }
@@ -116,6 +160,27 @@ export const OrderDetailDialog: React.FC<OrderDetailDialogProps> = ({
       setErrorMessage(extractErrorMessage(err));
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleUpdatePaymentStatus = async () => {
+    setIsUpdatingPayment(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const updated = await ecommerceService.updateOrderStatus(
+        order.id,
+        undefined,
+        undefined,
+        selectedPaymentStatus
+      );
+      setSuccessMessage('Status pembayaran berhasil diperbarui.');
+      onOrderUpdated(updated);
+    } catch (err: unknown) {
+      setErrorMessage(extractErrorMessage(err));
+    } finally {
+      setIsUpdatingPayment(false);
     }
   };
 
@@ -158,6 +223,9 @@ export const OrderDetailDialog: React.FC<OrderDetailDialogProps> = ({
             <span>{successMessage}</span>
           </div>
         )}
+
+        {/* Status Timeline */}
+        <OrderStatusTimeline currentStatus={order.status} />
 
         {/* Customer & Shipping Information Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -320,6 +388,30 @@ export const OrderDetailDialog: React.FC<OrderDetailDialogProps> = ({
           </div>
         )}
 
+        {/* Transfer Proof — admin view */}
+        {order.transfer_proof_url && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-blue-700 uppercase tracking-wider">
+              <ImageIcon className="w-4 h-4 text-blue-500" />
+              <span>Bukti Transfer</span>
+            </div>
+            <a
+              href={order.transfer_proof_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Klik untuk lihat ukuran penuh"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={order.transfer_proof_url}
+                alt="Bukti transfer customer"
+                className="max-h-48 rounded-lg border border-blue-200 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+              />
+            </a>
+            <p className="text-[11px] text-blue-600">Klik gambar untuk melihat ukuran penuh.</p>
+          </div>
+        )}
+
         {/* Status Update Section */}
         <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold text-gray-700 uppercase tracking-wider">
@@ -348,6 +440,70 @@ export const OrderDetailDialog: React.FC<OrderDetailDialogProps> = ({
                 onClick={handleUpdateStatus}
                 disabled={isUpdating || selectedStatus === order.status}
                 className="w-full bg-pink-600 hover:bg-pink-700 border-none text-xs h-10"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Status Section */}
+        <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-gray-700 uppercase tracking-wider">
+              <CheckCircle2 className="w-4 h-4 text-pink-600" />
+              <span>Status Pembayaran</span>
+            </div>
+            <Tag
+              value={getPaymentStatusLabel(order.payment_status || 'unpaid')}
+              severity={getPaymentStatusSeverity(order.payment_status || 'unpaid')}
+              className="text-[11px] px-2.5 py-0.5"
+            />
+          </div>
+
+          {/* Payment method info */}
+          {order.payment_method && (
+            <div className="text-xs text-gray-500">
+              Metode: <span className="font-semibold text-gray-700 uppercase">{order.payment_method.replace('_', ' ')}</span>
+            </div>
+          )}
+
+          {/* Paid badge */}
+          {order.payment_status === 'paid' && (
+            <div className="p-2.5 bg-green-50 border border-green-200 text-green-700 text-xs rounded-lg flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" />
+              <span className="font-semibold">Pembayaran telah diverifikasi oleh admin.</span>
+            </div>
+          )}
+
+          {/* Rejected badge */}
+          {order.payment_status === 'rejected' && (
+            <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <span className="font-semibold">Transfer ditolak. Hubungi pelanggan untuk klarifikasi.</span>
+            </div>
+          )}
+
+          {/* Admin payment status update */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end pt-1">
+            <div className="sm:col-span-2 space-y-1">
+              <label className="text-xs font-medium text-gray-600">
+                Ubah Status Pembayaran
+              </label>
+              <Dropdown
+                value={selectedPaymentStatus}
+                options={PAYMENT_STATUS_OPTIONS}
+                onChange={(e) => setSelectedPaymentStatus(e.value)}
+                placeholder="Pilih Status Pembayaran"
+                className="w-full text-xs"
+              />
+            </div>
+
+            <div>
+              <Button
+                label={isUpdatingPayment ? 'Menyimpan...' : 'Perbarui Pembayaran'}
+                icon={isUpdatingPayment ? 'pi pi-spin pi-spinner' : 'pi pi-check'}
+                onClick={handleUpdatePaymentStatus}
+                disabled={isUpdatingPayment || selectedPaymentStatus === (order.payment_status || 'unpaid')}
+                className="w-full p-button-outlined p-button-success text-xs h-10"
               />
             </div>
           </div>

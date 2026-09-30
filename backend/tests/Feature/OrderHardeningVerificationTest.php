@@ -433,6 +433,7 @@ class OrderHardeningVerificationTest extends TestCase
             'name' => 'Benang Nilon Polos',
             'slug' => 'benang-nilon-polos-' . uniqid(),
             'base_price' => 15000,
+            'stock' => 50,
             'is_active' => true,
         ]);
 

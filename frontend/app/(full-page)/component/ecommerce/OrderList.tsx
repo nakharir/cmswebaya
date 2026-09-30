@@ -25,6 +25,8 @@ import {
   OrderDetailDialog,
   getOrderStatusLabel,
   getOrderStatusSeverity,
+  getPaymentStatusLabel,
+  getPaymentStatusSeverity,
 } from './OrderDetailDialog';
 
 interface OrderListProps {
@@ -253,6 +255,19 @@ export const OrderList: React.FC<OrderListProps> = ({ basePath = '/admin/pesanan
             <Tag
               value={getOrderStatusLabel(row.status)}
               severity={getOrderStatusSeverity(row.status)}
+              className="text-[11px] px-2.5 py-0.5"
+            />
+          )}
+          style={{ width: '140px' }}
+        />
+
+        <Column
+          field="payment_status"
+          header="Pembayaran"
+          body={(row: EcommerceOrder) => (
+            <Tag
+              value={getPaymentStatusLabel(row.payment_status || 'unpaid')}
+              severity={getPaymentStatusSeverity(row.payment_status || 'unpaid')}
               className="text-[11px] px-2.5 py-0.5"
             />
           )}

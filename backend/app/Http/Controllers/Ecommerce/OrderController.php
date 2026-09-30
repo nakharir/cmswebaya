@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use App\Services\Ecommerce\OrderNumberGenerator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class OrderController extends Controller
@@ -51,6 +52,85 @@ class OrderController extends Controller
                 'message' => 'Anda tidak memiliki akses ke pesanan ini.',
             ], 403);
         }
+
+        return new OrderResource($order);
+    }
+
+    /**
+     * Customer confirms manual bank transfer.
+     * Transitions payment_status from unpaid -> waiting_verification.
+     * Order status remains completely unchanged.
+     */
+    public function confirmPayment(Request $request, int $id): JsonResponse|OrderResource
+    {
+        $order = Order::with(['items', 'customer'])->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Pesanan tidak ditemukan.',
+            ], 404);
+        }
+
+        if ((int) $order->customer_id !== (int) $request->user()->id) {
+            return response()->json([
+                'message' => 'Anda tidak memiliki akses ke pesanan ini.',
+            ], 403);
+        }
+
+        if ($order->payment_status === Order::PAYMENT_STATUS_PAID) {
+            return response()->json([
+                'message' => 'Pembayaran untuk pesanan ini sudah diverifikasi.',
+            ], 422);
+        }
+
+        if ($order->payment_status === Order::PAYMENT_STATUS_UNPAID) {
+            $order->payment_status = Order::PAYMENT_STATUS_WAITING_VERIFICATION;
+            $order->save();
+        }
+
+        return new OrderResource($order);
+    }
+
+    /**
+     * Customer uploads transfer proof image.
+     * Allowed on payment_status: unpaid or rejected.
+     * Automatically transitions payment_status to waiting_verification.
+     * Order status remains completely unchanged.
+     */
+    public function uploadTransferProof(Request $request, int $id): JsonResponse|OrderResource
+    {
+        $order = Order::with(['items', 'customer'])->find($id);
+
+        if (!$order) {
+            return response()->json(['message' => 'Pesanan tidak ditemukan.'], 404);
+        }
+
+        if ((int) $order->customer_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Anda tidak memiliki akses ke pesanan ini.'], 403);
+        }
+
+        if ($order->payment_status === Order::PAYMENT_STATUS_PAID) {
+            return response()->json(['message' => 'Pembayaran sudah diverifikasi, tidak dapat upload bukti baru.'], 422);
+        }
+
+        if ($order->payment_status === Order::PAYMENT_STATUS_WAITING_VERIFICATION) {
+            // Allow re-upload while waiting if customer wants to update
+        }
+
+        $request->validate([
+            'transfer_proof' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
+        ]);
+
+        // Delete old proof file if it exists
+        if ($order->transfer_proof && Storage::disk('public')->exists($order->transfer_proof)) {
+            Storage::disk('public')->delete($order->transfer_proof);
+        }
+
+        $path = $request->file('transfer_proof')->store('transfer_proofs', 'public');
+
+        $order->transfer_proof = $path;
+        $order->payment_status = Order::PAYMENT_STATUS_WAITING_VERIFICATION;
+        $order->save();
 
         return new OrderResource($order);
     }
@@ -241,6 +321,8 @@ class OrderController extends Controller
                 'customer_id' => $user->id,
                 'order_number' => $orderNumber,
                 'status' => 'pending',
+                'payment_status' => Order::PAYMENT_STATUS_UNPAID,
+                'payment_method' => $request->input('payment_method') ?: 'manual_transfer',
                 'shipping_method' => $request->shipping_method,
                 'shipping_name' => $address->recipient_name,
                 'shipping_whatsapp' => $address->whatsapp,

@@ -41,6 +41,11 @@ class AdminOrderController extends Controller
             $query->where('status', $request->input('status'));
         }
 
+        // Filter by Payment Status
+        if ($request->filled('payment_status') && $request->input('payment_status') !== 'all') {
+            $query->where('payment_status', $request->input('payment_status'));
+        }
+
         $perPage = (int) $request->input('per_page', 20);
         $orders = $query->paginate($perPage);
 
@@ -78,19 +83,26 @@ class AdminOrderController extends Controller
 
         $validated = $request->validate([
             'status' => [
+                'sometimes',
                 'required',
                 'string',
                 Rule::in(['pending', 'confirmed', 'processing', 'shipped', 'completed', 'cancelled']),
+            ],
+            'payment_status' => [
+                'sometimes',
+                'required',
+                'string',
+                Rule::in(Order::PAYMENT_STATUSES),
             ],
             'notes' => ['nullable', 'string', 'max:500'],
         ], [
             'status.required' => 'Status pesanan wajib diisi.',
             'status.in' => 'Status pesanan tidak valid.',
+            'payment_status.required' => 'Status pembayaran wajib diisi.',
+            'payment_status.in' => 'Status pembayaran tidak valid.',
         ]);
 
-        $newStatus = $validated['status'];
-
-        DB::transaction(function () use ($order, $newStatus, $validated) {
+        DB::transaction(function () use ($order, $validated) {
             // Re-lock the order row inside the transaction
             $lockedOrder = Order::with('items')->lockForUpdate()->find($order->id);
             if (!$lockedOrder) {
@@ -99,73 +111,81 @@ class AdminOrderController extends Controller
                 ], 404));
             }
 
-            $oldStatus = $lockedOrder->status;
+            if (isset($validated['status'])) {
+                $newStatus = $validated['status'];
+                $oldStatus = $lockedOrder->status;
 
-            // Extract unique variant IDs in deterministic sorted order to prevent deadlocks
-            $variantIds = $lockedOrder->items
-                ->pluck('variant_id')
-                ->filter()
-                ->unique()
-                ->sort()
-                ->values();
+                // Extract unique variant IDs in deterministic sorted order to prevent deadlocks
+                $variantIds = $lockedOrder->items
+                    ->pluck('variant_id')
+                    ->filter()
+                    ->unique()
+                    ->sort()
+                    ->values();
 
-            // Lock row variants inside the transaction
-            $lockedVariants = collect();
-            if ($variantIds->isNotEmpty()) {
-                $lockedVariants = ProductVariant::whereIn('id', $variantIds)
-                    ->lockForUpdate()
-                    ->get()
-                    ->keyBy('id');
-            }
-
-            // Aggregate quantities by variant to handle multiple items with the same variant safely
-            $quantitiesByVariant = [];
-            foreach ($lockedOrder->items as $item) {
-                if ($item->variant_id) {
-                    $quantitiesByVariant[$item->variant_id] = ($quantitiesByVariant[$item->variant_id] ?? 0) + $item->quantity;
+                // Lock row variants inside the transaction
+                $lockedVariants = collect();
+                if ($variantIds->isNotEmpty()) {
+                    $lockedVariants = ProductVariant::whereIn('id', $variantIds)
+                        ->lockForUpdate()
+                        ->get()
+                        ->keyBy('id');
                 }
-            }
 
-            // 1. If transitioning to 'cancelled' from an active status, restore stock
-            if ($oldStatus !== 'cancelled' && $newStatus === 'cancelled') {
-                foreach ($quantitiesByVariant as $variantId => $qty) {
-                    if ($lockedVariants->has($variantId)) {
+                // Aggregate quantities by variant to handle multiple items with the same variant safely
+                $quantitiesByVariant = [];
+                foreach ($lockedOrder->items as $item) {
+                    if ($item->variant_id) {
+                        $quantitiesByVariant[$item->variant_id] = ($quantitiesByVariant[$item->variant_id] ?? 0) + $item->quantity;
+                    }
+                }
+
+                // 1. If transitioning to 'cancelled' from an active status, restore stock
+                if ($oldStatus !== 'cancelled' && $newStatus === 'cancelled') {
+                    foreach ($quantitiesByVariant as $variantId => $qty) {
+                        if ($lockedVariants->has($variantId)) {
+                            $variant = $lockedVariants->get($variantId);
+                            $variant->increment('stock', $qty);
+                        }
+                    }
+                }
+
+                // 2. If transitioning from 'cancelled' back to an active status (confirmed/processing/shipped)
+                $activeStatuses = ['confirmed', 'processing', 'shipped'];
+                if ($oldStatus === 'cancelled' && in_array($newStatus, $activeStatuses)) {
+                    // First pass: cek stock terlebih dahulu
+                    foreach ($quantitiesByVariant as $variantId => $neededQty) {
                         $variant = $lockedVariants->get($variantId);
-                        $variant->increment('stock', $qty);
+                        if (!$variant) {
+                            throw new HttpResponseException(response()->json([
+                                'message' => "Varian produk tidak ditemukan.",
+                            ], 422));
+                        }
+
+                        if ($variant->stock < $neededQty) {
+                            throw new HttpResponseException(response()->json([
+                                'message' => "Stok tidak mencukupi untuk varian '{$variant->name}'. Stok tersedia: {$variant->stock}, dibutuhkan: {$neededQty}.",
+                                'errors' => [
+                                    'status' => ["Stok tidak mencukupi untuk varian '{$variant->name}' (tersedia: {$variant->stock}, dibutuhkan: {$neededQty})."],
+                                ],
+                            ], 422));
+                        }
+                    }
+
+                    // Second pass: jika stock cukup → decrement sesuai quantity (tidak boleh stock negatif)
+                    foreach ($quantitiesByVariant as $variantId => $neededQty) {
+                        $variant = $lockedVariants->get($variantId);
+                        $variant->decrement('stock', $neededQty);
                     }
                 }
+
+                $lockedOrder->status = $newStatus;
             }
 
-            // 2. If transitioning from 'cancelled' back to an active status (confirmed/processing/shipped)
-            $activeStatuses = ['confirmed', 'processing', 'shipped'];
-            if ($oldStatus === 'cancelled' && in_array($newStatus, $activeStatuses)) {
-                // First pass: cek stock terlebih dahulu
-                foreach ($quantitiesByVariant as $variantId => $neededQty) {
-                    $variant = $lockedVariants->get($variantId);
-                    if (!$variant) {
-                        throw new HttpResponseException(response()->json([
-                            'message' => "Varian produk tidak ditemukan.",
-                        ], 422));
-                    }
-
-                    if ($variant->stock < $neededQty) {
-                        throw new HttpResponseException(response()->json([
-                            'message' => "Stok tidak mencukupi untuk varian '{$variant->name}'. Stok tersedia: {$variant->stock}, dibutuhkan: {$neededQty}.",
-                            'errors' => [
-                                'status' => ["Stok tidak mencukupi untuk varian '{$variant->name}' (tersedia: {$variant->stock}, dibutuhkan: {$neededQty})."],
-                            ],
-                        ], 422));
-                    }
-                }
-
-                // Second pass: jika stock cukup → decrement sesuai quantity (tidak boleh stock negatif)
-                foreach ($quantitiesByVariant as $variantId => $neededQty) {
-                    $variant = $lockedVariants->get($variantId);
-                    $variant->decrement('stock', $neededQty);
-                }
+            if (isset($validated['payment_status'])) {
+                $lockedOrder->payment_status = $validated['payment_status'];
             }
 
-            $lockedOrder->status = $newStatus;
             if (array_key_exists('notes', $validated)) {
                 $lockedOrder->notes = $validated['notes'];
             }

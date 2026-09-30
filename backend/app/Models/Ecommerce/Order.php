@@ -14,10 +14,49 @@ class Order extends Model
 
     protected $table = 'ecommerce_orders';
 
+    // Order Lifecycle Status Constants
+    const STATUS_PENDING = 'pending';
+    const STATUS_CONFIRMED = 'confirmed';
+    const STATUS_PROCESSING = 'processing';
+    const STATUS_SHIPPED = 'shipped';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_CANCELLED = 'cancelled';
+
+    const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
+        self::STATUS_PROCESSING,
+        self::STATUS_SHIPPED,
+        self::STATUS_COMPLETED,
+        self::STATUS_CANCELLED,
+    ];
+
+    // Manual Transfer Payment Status Constants
+    const PAYMENT_STATUS_UNPAID = 'unpaid';
+    const PAYMENT_STATUS_WAITING_VERIFICATION = 'waiting_verification';
+    const PAYMENT_STATUS_PAID = 'paid';
+    const PAYMENT_STATUS_REJECTED = 'rejected';
+
+    const PAYMENT_STATUSES = [
+        self::PAYMENT_STATUS_UNPAID,
+        self::PAYMENT_STATUS_WAITING_VERIFICATION,
+        self::PAYMENT_STATUS_PAID,
+        self::PAYMENT_STATUS_REJECTED,
+    ];
+
+    protected $attributes = [
+        'status' => self::STATUS_PENDING,
+        'payment_status' => self::PAYMENT_STATUS_UNPAID,
+        'payment_method' => 'manual_transfer',
+    ];
+
     protected $fillable = [
         'customer_id',
         'order_number',
         'status',
+        'payment_status',
+        'payment_method',
+        'transfer_proof',
         'shipping_method',
         'shipping_name',
         'shipping_whatsapp',

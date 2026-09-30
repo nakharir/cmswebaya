@@ -315,6 +315,7 @@ class OrderMilestoneVerificationTest extends TestCase
             'name' => 'Benang Nilon Transparan',
             'slug' => 'benang-nilon-transparan-' . uniqid(),
             'base_price' => 15000,
+            'stock' => 50,
             'is_active' => true,
         ]);
 
