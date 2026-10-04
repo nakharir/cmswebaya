@@ -74,13 +74,13 @@ class EcommerceSeeder extends Seeder
                 'is_active' => true,
                 'images' => [
                     [
-                        'image_url' => '/images/ecommerce/products/manik-kaca-aurora-1.jpg',
+                        'image_url' => '/storage/ecommerce/products/0DfsrJAu1bYe4lqXHTbhDAgs6xfPzNZRLwVGw1D8.jpg',
                         'alt_text' => 'Manik Kaca Aurora Iridescent Tampilan Utama',
                         'sort_order' => 1,
                         'is_primary' => true,
                     ],
                     [
-                        'image_url' => '/images/ecommerce/products/manik-kaca-aurora-2.jpg',
+                        'image_url' => '/storage/ecommerce/products/2ZIGgsoLa7OxwhZj4IT5Ihej7bkm4vB0TvcOkJFM.jpg',
                         'alt_text' => 'Detail Kilau Pendaran Manik Kaca Aurora',
                         'sort_order' => 2,
                         'is_primary' => false,
@@ -139,13 +139,13 @@ class EcommerceSeeder extends Seeder
                 'is_active' => true,
                 'images' => [
                     [
-                        'image_url' => '/images/ecommerce/products/manik-akrilik-pastel-1.jpg',
+                        'image_url' => '/storage/ecommerce/products/AGdhAU8pPh6VqzP5KjZIBfkLlg9d8ZiRj6YvCSwT.jpg',
                         'alt_text' => 'Manik Akrilik Pastel Matte Beragam Bentuk',
                         'sort_order' => 1,
                         'is_primary' => true,
                     ],
                     [
-                        'image_url' => '/images/ecommerce/products/manik-akrilik-pastel-2.jpg',
+                        'image_url' => '/storage/ecommerce/products/COitDNYxnU2Vfl8akSkv99TyYQn57Nyr6qy9yzQF.jpg',
                         'alt_text' => 'Detail Tekstur Halus Akrilik Pastel',
                         'sort_order' => 2,
                         'is_primary' => false,
@@ -196,7 +196,7 @@ class EcommerceSeeder extends Seeder
                 'is_active' => true,
                 'images' => [
                     [
-                        'image_url' => '/images/ecommerce/products/mutiara-classic-ivory-1.jpg',
+                        'image_url' => '/storage/ecommerce/products/FuQj5iY0tiVstDeMmcWMDVqVPPhCgNE6q0C8krEF.jpg',
                         'alt_text' => 'Mutiara Sintetis Classic Ivory Elegan',
                         'sort_order' => 1,
                         'is_primary' => true,
@@ -255,7 +255,7 @@ class EcommerceSeeder extends Seeder
                 'is_active' => true,
                 'images' => [
                     [
-                        'image_url' => '/images/ecommerce/products/tali-nylon-braided-1.jpg',
+                        'image_url' => '/storage/ecommerce/products/gG44Cz8IgwE5GYAiwwEKVGagYojMeuSaheT5oaNC.jpg',
                         'alt_text' => 'Roll Tali Nylon Craft Braided',
                         'sort_order' => 1,
                         'is_primary' => true,
@@ -306,7 +306,7 @@ class EcommerceSeeder extends Seeder
                 'is_active' => true,
                 'images' => [
                     [
-                        'image_url' => '/images/ecommerce/products/tang-round-nose-1.jpg',
+                        'image_url' => '/storage/ecommerce/products/KNkRVDKUfUkfFDpTK6er1MXhlc633aqIGV9dMXC3.jpg',
                         'alt_text' => 'Tang Round Nose Mini Precision Gagang Lilac dan Coral',
                         'sort_order' => 1,
                         'is_primary' => true,
@@ -341,7 +341,7 @@ class EcommerceSeeder extends Seeder
                 'is_active' => true,
                 'images' => [
                     [
-                        'image_url' => '/images/ecommerce/products/kawat-tembaga-1.jpg',
+                        'image_url' => '/storage/ecommerce/products/KPa87Y3rXU4Grp1YMMh0Ds23hpJbjE8Yy0g9b0kq.jpg',
                         'alt_text' => 'Kawat Tembaga Non-Tarnish Kilau Logam',
                         'sort_order' => 1,
                         'is_primary' => true,
@@ -392,7 +392,7 @@ class EcommerceSeeder extends Seeder
                 'is_active' => true,
                 'images' => [
                     [
-                        'image_url' => '/images/ecommerce/products/lampwork-bunga-1.jpg',
+                        'image_url' => '/storage/ecommerce/products/kZhXUKSpQx2EGrzc22wYbihn5xsZUmGR5aY4VHde.jpg',
                         'alt_text' => 'Manik Kaca Lampwork Motif Bunga Mekar Unik',
                         'sort_order' => 1,
                         'is_primary' => true,
@@ -435,7 +435,7 @@ class EcommerceSeeder extends Seeder
                 'is_active' => true,
                 'images' => [
                     [
-                        'image_url' => '/images/ecommerce/products/mutiara-baroque-1.jpg',
+                        'image_url' => '/storage/ecommerce/products/O6z0ooufChuF5CEfrjgRLjnH2CNpiIFOQ1uuRE6x.jpg',
                         'alt_text' => 'Mutiara Air Tawar Baroque Alami Asimetris',
                         'sort_order' => 1,
                         'is_primary' => true,
