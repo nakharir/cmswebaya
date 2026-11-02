@@ -9,17 +9,24 @@ use App\Models\Ecommerce\CustomerAddress;
 use App\Models\Ecommerce\Order;
 use App\Models\Ecommerce\Product;
 use App\Models\Ecommerce\ProductVariant;
+use App\Services\Ecommerce\OrderNumberGenerator;
+use App\Services\Ecommerce\ShippingRateService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use App\Services\Ecommerce\OrderNumberGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
+    protected ShippingRateService $shippingRateService;
+
+    public function __construct(ShippingRateService $shippingRateService)
+    {
+        $this->shippingRateService = $shippingRateService;
+    }
+
     /**
      * Display a listing of orders for the authenticated customer.
      */
@@ -58,8 +65,6 @@ class OrderController extends Controller
 
     /**
      * Customer confirms manual bank transfer.
-     * Transitions payment_status from unpaid -> waiting_verification.
-     * Order status remains completely unchanged.
      */
     public function confirmPayment(Request $request, int $id): JsonResponse|OrderResource
     {
@@ -93,9 +98,6 @@ class OrderController extends Controller
 
     /**
      * Customer uploads transfer proof image.
-     * Allowed on payment_status: unpaid or rejected.
-     * Automatically transitions payment_status to waiting_verification.
-     * Order status remains completely unchanged.
      */
     public function uploadTransferProof(Request $request, int $id): JsonResponse|OrderResource
     {
@@ -111,10 +113,6 @@ class OrderController extends Controller
 
         if ($order->payment_status === Order::PAYMENT_STATUS_PAID) {
             return response()->json(['message' => 'Pembayaran sudah diverifikasi, tidak dapat upload bukti baru.'], 422);
-        }
-
-        if ($order->payment_status === Order::PAYMENT_STATUS_WAITING_VERIFICATION) {
-            // Allow re-upload while waiting if customer wants to update
         }
 
         $request->validate([
@@ -195,6 +193,7 @@ class OrderController extends Controller
             }
 
             $orderSubtotal = 0;
+            $totalOrderWeight = 0;
             $preparedItems = [];
 
             foreach ($itemsInput as $item) {
@@ -216,7 +215,6 @@ class OrderController extends Controller
                     ], 422));
                 }
 
-                // Check if product has variants
                 $hasVariants = $product->variants->isNotEmpty();
 
                 if ($hasVariants) {
@@ -258,8 +256,12 @@ class OrderController extends Controller
                         ? (float) $variant->price
                         : (float) $product->base_price;
 
+                    // Determine Item Weight
+                    $unitWeight = $variant->effective_weight;
+
                     $itemSubtotal = round($unitPrice * $requestedQty, 2);
                     $orderSubtotal += $itemSubtotal;
+                    $totalOrderWeight += ($unitWeight * $requestedQty);
 
                     // Decrement Stock
                     $variant->stock -= $requestedQty;
@@ -273,6 +275,7 @@ class OrderController extends Controller
                         'variant_name' => $variant->name,
                         'sku' => $variant->sku,
                         'unit_price' => $unitPrice,
+                        'weight' => $unitWeight,
                         'quantity' => $requestedQty,
                         'subtotal' => $itemSubtotal,
                     ];
@@ -292,8 +295,13 @@ class OrderController extends Controller
 
                     // Calculate Server-Side Unit Price & Subtotal
                     $unitPrice = (float) $product->base_price;
+                    $unitWeight = ($product->weight !== null && $product->weight > 0)
+                        ? (int) $product->weight
+                        : ShippingRateService::DEFAULT_ITEM_WEIGHT_GRAMS;
+
                     $itemSubtotal = round($unitPrice * $requestedQty, 2);
                     $orderSubtotal += $itemSubtotal;
+                    $totalOrderWeight += ($unitWeight * $requestedQty);
 
                     // Decrement Stock
                     $product->stock -= $requestedQty;
@@ -307,11 +315,42 @@ class OrderController extends Controller
                         'variant_name' => null,
                         'sku' => null,
                         'unit_price' => $unitPrice,
+                        'weight' => $unitWeight,
                         'quantity' => $requestedQty,
                         'subtotal' => $itemSubtotal,
                     ];
                 }
             }
+
+            // 3. Resolve Courier & Service with Server-side Rate Calculation
+            $courierInput = $request->input('shipping_courier');
+            if (!$courierInput) {
+                $rawMethod = strtolower($request->input('shipping_method', ''));
+                if (str_contains($rawMethod, 'jne')) {
+                    $courierInput = 'jne';
+                } elseif (str_contains($rawMethod, 'jnt') || str_contains($rawMethod, 'j&t')) {
+                    $courierInput = 'jnt';
+                } elseif (str_contains($rawMethod, 'sicepat')) {
+                    $courierInput = 'sicepat';
+                } elseif (str_contains($rawMethod, 'pos')) {
+                    $courierInput = 'pos';
+                } else {
+                    $courierInput = $rawMethod;
+                }
+            }
+
+            $serviceInput = $request->input('shipping_service');
+
+            // Strictly calculate shipping cost on backend (never trust frontend shipping_cost or total)
+            $rateCalc = $this->shippingRateService->calculateExactRate(
+                $address->province,
+                $courierInput,
+                $serviceInput,
+                $totalOrderWeight
+            );
+
+            $shippingCost = (float) $rateCalc['cost'];
+            $orderTotal = round($orderSubtotal + $shippingCost, 2);
 
             // Generate Sequential Order Number: KREZOEMA-YYYYMMDD-XXXX (atomic, concurrency-safe)
             $orderNumber = OrderNumberGenerator::generate();
@@ -323,7 +362,10 @@ class OrderController extends Controller
                 'status' => 'pending',
                 'payment_status' => Order::PAYMENT_STATUS_UNPAID,
                 'payment_method' => $request->input('payment_method') ?: 'manual_transfer',
-                'shipping_method' => $request->shipping_method,
+                'shipping_method' => $rateCalc['shipping_method'],
+                'shipping_courier' => $rateCalc['courier_name'],
+                'shipping_service' => $rateCalc['service_name'],
+                'shipping_etd' => $rateCalc['etd'],
                 'shipping_name' => $address->recipient_name,
                 'shipping_whatsapp' => $address->whatsapp,
                 'shipping_address' => $address->address,
@@ -331,13 +373,14 @@ class OrderController extends Controller
                 'shipping_city' => $address->city,
                 'shipping_province' => $address->province,
                 'shipping_postal_code' => $address->postal_code,
+                'total_weight' => $totalOrderWeight,
                 'notes' => $request->notes,
                 'subtotal' => $orderSubtotal,
-                'shipping_cost' => 0.00,
-                'total' => $orderSubtotal,
+                'shipping_cost' => $shippingCost,
+                'total' => $orderTotal,
             ]);
 
-            // Create Order Items
+            // Create Order Items with weight snapshot
             foreach ($preparedItems as $itemRecord) {
                 $order->items()->create($itemRecord);
             }

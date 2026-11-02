@@ -21,6 +21,8 @@ class ProductVariantResource extends JsonResource
             'options' => $this->options ?? [],
             'price' => $this->price !== null ? (float) $this->price : null,
             'effective_price' => (float) $this->effective_price,
+            'weight' => $this->weight !== null ? (int) $this->weight : null,
+            'effective_weight' => (int) $this->effective_weight,
             'stock' => (int) $this->stock,
             'is_active' => (bool) $this->is_active,
         ];

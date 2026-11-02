@@ -8,6 +8,7 @@ use App\Http\Requests\Ecommerce\AdminProductUpdateRequest;
 use App\Http\Resources\Ecommerce\ProductResource;
 use App\Models\Ecommerce\Product;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class AdminProductController extends Controller
@@ -20,15 +21,14 @@ class AdminProductController extends Controller
         $validated = $request->validated();
 
         if (empty($validated['slug'])) {
-            $validated['slug'] = Str::slug($validated['name']);
-
-            // Ensure unique slug
-            $originalSlug = $validated['slug'];
-            $count = 1;
-            while (Product::where('slug', $validated['slug'])->exists()) {
-                $validated['slug'] = "{$originalSlug}-{$count}";
-                $count++;
+            $baseSlug = Str::slug($validated['name']);
+            $slug = $baseSlug;
+            $counter = 1;
+            while (Product::where('slug', $slug)->exists()) {
+                $slug = "{$baseSlug}-{$counter}";
+                $counter++;
             }
+            $validated['slug'] = $slug;
         }
 
         $variantsData = $validated['variants'] ?? null;
@@ -43,6 +43,7 @@ class AdminProductController extends Controller
                     'name' => $v['name'],
                     'options' => $v['options'] ?? null,
                     'price' => isset($v['price']) && $v['price'] !== '' ? $v['price'] : null,
+                    'weight' => isset($v['weight']) && $v['weight'] !== '' ? (int) $v['weight'] : null,
                     'stock' => isset($v['stock']) ? (int) $v['stock'] : 0,
                     'is_active' => $v['is_active'] ?? true,
                 ]);
@@ -104,6 +105,7 @@ class AdminProductController extends Controller
                             'name' => $v['name'],
                             'options' => $v['options'] ?? null,
                             'price' => isset($v['price']) && $v['price'] !== '' ? $v['price'] : null,
+                            'weight' => isset($v['weight']) && $v['weight'] !== '' ? (int) $v['weight'] : null,
                             'stock' => isset($v['stock']) ? (int) $v['stock'] : 0,
                             'is_active' => $v['is_active'] ?? true,
                         ]);
@@ -117,6 +119,7 @@ class AdminProductController extends Controller
                     'name' => $v['name'],
                     'options' => $v['options'] ?? null,
                     'price' => isset($v['price']) && $v['price'] !== '' ? $v['price'] : null,
+                    'weight' => isset($v['weight']) && $v['weight'] !== '' ? (int) $v['weight'] : null,
                     'stock' => isset($v['stock']) ? (int) $v['stock'] : 0,
                     'is_active' => $v['is_active'] ?? true,
                 ]);
@@ -139,7 +142,7 @@ class AdminProductController extends Controller
      */
     public function destroy(int $id): JsonResponse
     {
-        $product = Product::with('images')->find($id);
+        $product = Product::find($id);
 
         if (!$product) {
             return response()->json([
@@ -147,18 +150,11 @@ class AdminProductController extends Controller
             ], 404);
         }
 
-        // Clean up physical images from storage
-        foreach ($product->images as $img) {
-            $relativePath = \Illuminate\Support\Str::after($img->image_url, '/storage/');
-            if ($relativePath && \Illuminate\Support\Facades\Storage::disk('public')->exists($relativePath)) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($relativePath);
-            }
-        }
-
+        // Soft delete could also be used, here we delete the record
         $product->delete();
 
         return response()->json([
             'message' => 'Product deleted successfully',
-        ]);
+        ], 200);
     }
 }

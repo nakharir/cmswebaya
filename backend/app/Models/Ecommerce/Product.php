@@ -21,6 +21,7 @@ class Product extends Model
         'description',
         'material',
         'base_price',
+        'weight',
         'stock',
         'is_active',
     ];
@@ -28,6 +29,7 @@ class Product extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'base_price' => 'float',
+        'weight' => 'integer',
         'stock' => 'integer',
     ];
 

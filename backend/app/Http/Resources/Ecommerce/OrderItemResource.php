@@ -23,6 +23,7 @@ class OrderItemResource extends JsonResource
             'variant_name' => $this->variant_name,
             'sku' => $this->sku,
             'unit_price' => (float) $this->unit_price,
+            'weight' => (int) ($this->weight ?? 250),
             'quantity' => (int) $this->quantity,
             'subtotal' => (float) $this->subtotal,
             'created_at' => $this->created_at?->toIso8601String(),

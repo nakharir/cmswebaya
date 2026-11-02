@@ -19,6 +19,7 @@ class ProductVariant extends Model
         'name',
         'options',
         'price',
+        'weight',
         'stock',
         'is_active',
     ];
@@ -26,6 +27,7 @@ class ProductVariant extends Model
     protected $casts = [
         'options' => 'array',
         'price' => 'float',
+        'weight' => 'integer',
         'stock' => 'integer',
         'is_active' => 'boolean',
     ];
@@ -47,6 +49,19 @@ class ProductVariant extends Model
         }
 
         return $this->product ? (float) $this->product->base_price : null;
+    }
+
+    public function getEffectiveWeightAttribute(): int
+    {
+        if ($this->weight !== null && $this->weight > 0) {
+            return (int) $this->weight;
+        }
+
+        if ($this->product && $this->product->weight !== null && $this->product->weight > 0) {
+            return (int) $this->product->weight;
+        }
+
+        return 250; // default fallback 250g
     }
 
     public function scopeActive($query)

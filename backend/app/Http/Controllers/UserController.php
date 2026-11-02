@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Sidebar;
 use App\Models\User;
 use DB;
 use Illuminate\Support\Facades\Hash;
@@ -13,28 +12,35 @@ class UserController extends Controller
 {
     public function register(Request $req)
     {
+        $req->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email',
+            'password' => 'required|string|min:6',
+        ]);
+
         $user = new User;
         $user->name = $req->input('name');
         $user->email = $req->input('email');
         $user->password = Hash::make($req->input('password'));
         $user->phone = $req->input('phone');
         $user->address = $req->input('address');
-        $user->status = $req->input('status');
+        $user->status = $req->input('status', 1);
 
-        $sidebars = Sidebar::all(['sidebar_id', 'label', 'to_path', 'status', 'children']);
-
-        // Transformasi data sidebar
-        $sidebars = $sidebars->map(function ($sidebar) {
-            $sidebar->children = $sidebar->children ?: [];
-            return $sidebar;
-        })->toArray();
+        $sidebars = [];
+        if (class_exists('App\Models\Sidebar')) {
+            $sidebars = \App\Models\Sidebar::all(['sidebar_id', 'label', 'to_path', 'status', 'children'])
+                ->map(function ($sidebar) {
+                    $sidebar->children = $sidebar->children ?: [];
+                    return $sidebar;
+                })->toArray();
+        }
 
         $user->sidebars = $sidebars;
-
         $user->save();
 
-        return response()->json($user);
+        return response()->json($user, 201);
     }
+
     public function update(Request $req, $id)
     {
         $user = User::find($id);
@@ -47,20 +53,18 @@ class UserController extends Controller
         if (!is_array($sidebars)) {
             $sidebars = json_decode($sidebars, true);
         }
-        $validatedSidebars = array_map(function ($sidebar) {
+        $validatedSidebars = is_array($sidebars) ? array_map(function ($sidebar) {
             return [
-                'sidebar_id' => $sidebar['sidebar_id'],
-                'label' => $sidebar['label'],
-                'to_path' => $sidebar['to_path'],
-                'status' => $sidebar['status'],
+                'sidebar_id' => $sidebar['sidebar_id'] ?? null,
+                'label' => $sidebar['label'] ?? '',
+                'to_path' => $sidebar['to_path'] ?? '',
+                'status' => $sidebar['status'] ?? 1,
                 'children' => $sidebar['children'] ?? []
             ];
-        }, $sidebars);
+        }, $sidebars) : [];
 
-        // $user->sidebars = json_encode($validatedSidebars);
         $user->sidebars = $validatedSidebars;
         $user->save();
-        // $user->sidebars = json_decode($user->sidebars, true);
         
         return response()->json($user);
     }
@@ -75,6 +79,7 @@ class UserController extends Controller
 
         return response()->json($user);
     }
+
     public function login(Request $req)
     {
         $req->validate([
@@ -93,6 +98,7 @@ class UserController extends Controller
 
         return response()->json($user);
     }
+
     public function getAllUsers()
     {
         // Fetch all users from the User table
@@ -108,31 +114,27 @@ class UserController extends Controller
         return response()->json($users);
     }
 
-
-
     public function syncUserSidebars()
     {
-        // Fetch all users
         $users = User::all();
 
-        // Fetch all sidebars
-        $sidebars = Sidebar::all(['sidebar_id', 'label', 'to_path', 'status', 'children']);
-
-        // Transformasi data sidebar
-        $sidebarData = $sidebars->map(function ($sidebar) {
-            $sidebar->children = $sidebar->children ?: [];
-            return $sidebar;
-        })->toArray();
+        $sidebarData = [];
+        if (class_exists('App\Models\Sidebar')) {
+            $sidebars = \App\Models\Sidebar::all(['sidebar_id', 'label', 'to_path', 'status', 'children']);
+            $sidebarData = $sidebars->map(function ($sidebar) {
+                $sidebar->children = $sidebar->children ?: [];
+                return $sidebar;
+            })->toArray();
+        }
 
         foreach ($users as $user) {
-            // Update user's sidebars with the new sidebar list
             $user->sidebars = $sidebarData;
             $user->save();
         }
 
-        // return response()->json($sidebarData);
         return response()->json(['message' => 'User sidebars synced successfully.']);
     }
+
     public function updateSidebarStatus(Request $request)
     {
         try {
@@ -142,7 +144,7 @@ class UserController extends Controller
             ]);
 
             $user = User::findOrFail($request->user_id);
-            $sidebars = $user->sidebars;
+            $sidebars = $user->sidebars ?: [];
 
             $updated = false;
             foreach ($sidebars as &$sidebar) {
@@ -206,6 +208,169 @@ class UserController extends Controller
             return response()->json([
                 'success' => false, 
                 'message' => 'Terjadi kesalahan saat verifikasi user'
+            ], 500);
+        }
+    }
+
+    /**
+     * Mengambil daftar akun admin (status = 1 SuperAdmin atau status = 2 Admin)
+     */
+    public function getOperators(Request $request)
+    {
+        try {
+            // Jika request membawa token, pastikan bukan customer biasa (status 0)
+            $authUser = $request->user('sanctum') ?? $request->user();
+            if ($authUser && !in_array((int) $authUser->status, [1, 2, 3], true)) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki hak akses ke data admin.',
+                ], 403);
+            }
+
+            // Query hanya mengambil akun yang sesuai dengan definisi role admin pada sistem (status 1 & 2)
+            $admins = User::whereIn('status', [1, 2])
+                ->orderBy('id', 'asc')
+                ->get()
+                ->makeVisible(['password']);
+
+            return response()->json($admins);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal mengambil data admin: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Menambahkan akun admin baru
+     */
+    public function addOperator(Request $request)
+    {
+        try {
+            $authUser = $request->user('sanctum') ?? $request->user();
+            if ($authUser && !in_array((int) $authUser->status, [1, 2, 3], true)) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki hak akses untuk menambahkan admin.',
+                ], 403);
+            }
+
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users,email',
+                'password' => 'required|string|min:6',
+                'phone' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:255',
+                'status' => 'nullable|integer',
+            ]);
+
+            $admin = new User;
+            $admin->name = $validated['name'];
+            $admin->email = $validated['email'];
+            $admin->password = Hash::make($validated['password']);
+            $admin->phone = $request->input('phone');
+            $admin->address = $request->input('address');
+
+            // Default status ke 2 (Admin) jika tidak ditentukan, atau pastikan status berada pada role admin (1 atau 2)
+            $status = (int) $request->input('status', 2);
+            $admin->status = in_array($status, [1, 2], true) ? $status : 2;
+
+            $sidebars = [];
+            if (class_exists('App\Models\Sidebar')) {
+                $sidebars = \App\Models\Sidebar::all(['sidebar_id', 'label', 'to_path', 'status', 'children'])
+                    ->map(function ($sidebar) {
+                        $sidebar->children = $sidebar->children ?: [];
+                        return $sidebar;
+                    })->toArray();
+            }
+            $admin->sidebars = $sidebars;
+            $admin->save();
+
+            return response()->json($admin->makeVisible(['password']), 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => $e->validator->errors()->first(),
+                'errors' => $e->validator->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal menambahkan data admin: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Memperbarui data admin
+     */
+    public function updateOperator(Request $request, $id)
+    {
+        try {
+            $authUser = $request->user('sanctum') ?? $request->user();
+            if ($authUser && !in_array((int) $authUser->status, [1, 2, 3], true)) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki hak akses untuk mengubah data admin.',
+                ], 403);
+            }
+
+            $admin = User::findOrFail($id);
+
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users,email,' . $id,
+                'password' => 'nullable|string|min:6',
+                'phone' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:255',
+                'status' => 'nullable|integer',
+            ]);
+
+            $admin->name = $validated['name'];
+            $admin->email = $validated['email'];
+            if (!empty($validated['password'])) {
+                $admin->password = Hash::make($validated['password']);
+            }
+            $admin->phone = $request->input('phone');
+            $admin->address = $request->input('address');
+
+            if ($request->has('status')) {
+                $status = (int) $request->input('status');
+                if (in_array($status, [1, 2], true)) {
+                    $admin->status = $status;
+                }
+            }
+
+            $admin->save();
+
+            return response()->json($admin->makeVisible(['password']));
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => $e->validator->errors()->first(),
+                'errors' => $e->validator->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal memperbarui data admin: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Menghapus data admin
+     */
+    public function deleteOperator(Request $request, $id)
+    {
+        try {
+            $authUser = $request->user('sanctum') ?? $request->user();
+            if ($authUser && !in_array((int) $authUser->status, [1, 2, 3], true)) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki hak akses untuk menghapus data admin.',
+                ], 403);
+            }
+
+            $admin = User::findOrFail($id);
+            $admin->delete();
+
+            return response()->json(['message' => 'Data admin berhasil dihapus']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal menghapus data admin: ' . $e->getMessage(),
             ], 500);
         }
     }

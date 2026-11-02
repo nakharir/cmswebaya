@@ -14,6 +14,9 @@ class OrderResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $totalWeight = (int) ($this->total_weight ?? 0);
+        $totalWeightKg = max(1, (int) ceil($totalWeight / 1000));
+
         return [
             'id' => $this->id,
             'customer_id' => $this->customer_id,
@@ -37,6 +40,11 @@ class OrderResource extends JsonResource
                 ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->transfer_proof)
                 : null,
             'shipping_method' => $this->shipping_method,
+            'shipping_courier' => $this->shipping_courier ?? $this->shipping_method,
+            'shipping_service' => $this->shipping_service,
+            'shipping_etd' => $this->shipping_etd,
+            'total_weight' => $totalWeight,
+            'total_weight_kg' => $totalWeightKg,
             'shipping_name' => $this->shipping_name,
             'shipping_whatsapp' => $this->shipping_whatsapp,
             'shipping_address' => $this->shipping_address,
@@ -53,6 +61,7 @@ class OrderResource extends JsonResource
                 'province' => $this->shipping_province,
                 'postal_code' => $this->shipping_postal_code,
             ],
+            'tracking_number' => $this->tracking_number,
             'notes' => $this->notes,
             'subtotal' => (float) $this->subtotal,
             'shipping_cost' => (float) $this->shipping_cost,

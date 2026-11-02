@@ -19,11 +19,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-/*
-// Legacy routes (controllers not present in project)
-// jaminan, finansial, aspek, limac, survey, pemohon, etc.
-*/
-
 //user
 Route::post('/register', [UserController::class, 'register']); //tambah data
 Route::post('/login', [UserController::class, 'login']); //login
@@ -37,12 +32,16 @@ Route::put('/sync-user-sidebars', [UserController::class, 'syncUserSidebars']); 
 //verify user
 Route::post('/verify-user', [UserController::class, 'verifyUser']); //verify user
 
-/*
-// Legacy placeholders (controllers not in repository)
-*/
+// ==========================================
+// Kelola Admin / Operator Routes
+// ==========================================
+Route::get('/getoperator', [UserController::class, 'getOperators']);
+Route::post('/tambahoperator', [UserController::class, 'addOperator']);
+Route::put('/updateoperator/{id}', [UserController::class, 'updateOperator']);
+Route::delete('/deleteoperator/{id}', [UserController::class, 'deleteOperator']);
 
 // ==========================================
-// KREZOEMA Ecommerce Routes (Stage 11)
+// KREZOEMA Ecommerce Routes (Stage 11 - 15)
 // ==========================================
 Route::prefix('ecommerce')->group(function () {
     // Public Catalog Endpoints
@@ -72,6 +71,9 @@ Route::prefix('ecommerce')->group(function () {
         Route::post('/addresses/{id}/default', [\App\Http\Controllers\Ecommerce\CustomerAddressController::class, 'setDefault']);
     });
 
+    // Shipping Calculation (Stage 15) — accessible by customer
+    Route::post('/shipping/calculate', [\App\Http\Controllers\Ecommerce\ShippingController::class, 'calculate']);
+
     // Customer Orders (Stage 14)
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders', [\App\Http\Controllers\Ecommerce\OrderController::class, 'index']);
@@ -81,35 +83,39 @@ Route::prefix('ecommerce')->group(function () {
         Route::post('/orders/{id}/upload-proof', [\App\Http\Controllers\Ecommerce\OrderController::class, 'uploadTransferProof']);
     });
 
-    // Admin Foundation Endpoints
-    Route::prefix('admin')->group(function () {
+    // Admin Endpoints — ALL protected by auth:sanctum + admin middleware
+    Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
+        // Admin Products
         Route::get('/products/{id}', [\App\Http\Controllers\Ecommerce\AdminProductController::class, 'show']);
         Route::post('/products', [\App\Http\Controllers\Ecommerce\AdminProductController::class, 'store']);
         Route::put('/products/{id}', [\App\Http\Controllers\Ecommerce\AdminProductController::class, 'update']);
         Route::delete('/products/{id}', [\App\Http\Controllers\Ecommerce\AdminProductController::class, 'destroy']);
 
         // Admin Product Images
-        Route::middleware('auth:sanctum')->group(function () {
-            Route::get('/products/{productId}/images', [\App\Http\Controllers\Ecommerce\AdminProductImageController::class, 'index']);
-            Route::post('/products/{productId}/images', [\App\Http\Controllers\Ecommerce\AdminProductImageController::class, 'store']);
-            Route::delete('/products/{productId}/images/{imageId}', [\App\Http\Controllers\Ecommerce\AdminProductImageController::class, 'destroy']);
-            Route::put('/products/{productId}/images/{imageId}/primary', [\App\Http\Controllers\Ecommerce\AdminProductImageController::class, 'setPrimary']);
-        });
+        Route::get('/products/{productId}/images', [\App\Http\Controllers\Ecommerce\AdminProductImageController::class, 'index']);
+        Route::post('/products/{productId}/images', [\App\Http\Controllers\Ecommerce\AdminProductImageController::class, 'store']);
+        Route::delete('/products/{productId}/images/{imageId}', [\App\Http\Controllers\Ecommerce\AdminProductImageController::class, 'destroy']);
+        Route::put('/products/{productId}/images/{imageId}/primary', [\App\Http\Controllers\Ecommerce\AdminProductImageController::class, 'setPrimary']);
 
         // Admin Categories
-        Route::middleware('auth:sanctum')->group(function () {
-            Route::get('/categories', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'index']);
-            Route::post('/categories', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'store']);
-            Route::get('/categories/{id}', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'show']);
-            Route::put('/categories/{id}', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'update']);
-            Route::delete('/categories/{id}', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'destroy']);
-        });
+        Route::get('/categories', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'index']);
+        Route::post('/categories', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'store']);
+        Route::get('/categories/{id}', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'show']);
+        Route::put('/categories/{id}', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'update']);
+        Route::delete('/categories/{id}', [\App\Http\Controllers\Ecommerce\AdminCategoryController::class, 'destroy']);
 
-        // Admin Orders (Restricted to Admin / Operator)
-        Route::middleware(['auth:sanctum', 'admin'])->group(function () {
-            Route::get('/orders', [\App\Http\Controllers\Ecommerce\AdminOrderController::class, 'index']);
-            Route::get('/orders/{id}', [\App\Http\Controllers\Ecommerce\AdminOrderController::class, 'show']);
-            Route::put('/orders/{id}', [\App\Http\Controllers\Ecommerce\AdminOrderController::class, 'update']);
-        });
+        // Admin Shipping Rates Management (Stage 15)
+        Route::get('/shipping-rates', [\App\Http\Controllers\Ecommerce\ShippingController::class, 'indexRates']);
+        Route::post('/shipping-rates', [\App\Http\Controllers\Ecommerce\ShippingController::class, 'storeRate']);
+        Route::put('/shipping-rates/{id}', [\App\Http\Controllers\Ecommerce\ShippingController::class, 'updateRate']);
+        Route::delete('/shipping-rates/{id}', [\App\Http\Controllers\Ecommerce\ShippingController::class, 'destroyRate']);
+
+        // Admin Orders
+        Route::get('/orders', [\App\Http\Controllers\Ecommerce\AdminOrderController::class, 'index']);
+        Route::get('/orders/{id}', [\App\Http\Controllers\Ecommerce\AdminOrderController::class, 'show']);
+        Route::put('/orders/{id}', [\App\Http\Controllers\Ecommerce\AdminOrderController::class, 'update']);
+
+        // Admin Dashboard Stats
+        Route::get('/dashboard-stats', [\App\Http\Controllers\Ecommerce\AdminOrderController::class, 'dashboardStats']);
     });
 });

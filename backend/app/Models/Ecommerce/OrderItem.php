@@ -20,12 +20,14 @@ class OrderItem extends Model
         'variant_name',
         'sku',
         'unit_price',
+        'weight',
         'quantity',
         'subtotal',
     ];
 
     protected $casts = [
         'unit_price' => 'float',
+        'weight' => 'integer',
         'quantity' => 'integer',
         'subtotal' => 'float',
     ];

@@ -58,6 +58,9 @@ class Order extends Model
         'payment_method',
         'transfer_proof',
         'shipping_method',
+        'shipping_courier',
+        'shipping_service',
+        'shipping_etd',
         'shipping_name',
         'shipping_whatsapp',
         'shipping_address',
@@ -65,7 +68,9 @@ class Order extends Model
         'shipping_city',
         'shipping_province',
         'shipping_postal_code',
+        'total_weight',
         'notes',
+        'tracking_number',
         'subtotal',
         'shipping_cost',
         'total',
@@ -75,6 +80,7 @@ class Order extends Model
         'subtotal' => 'float',
         'shipping_cost' => 'float',
         'total' => 'float',
+        'total_weight' => 'integer',
     ];
 
     public function customer(): BelongsTo

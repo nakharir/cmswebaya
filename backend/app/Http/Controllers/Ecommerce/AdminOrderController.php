@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Ecommerce;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Ecommerce\OrderResource;
 use App\Models\Ecommerce\Order;
+use App\Models\Ecommerce\Product;
 use App\Models\Ecommerce\ProductVariant;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
@@ -95,6 +96,7 @@ class AdminOrderController extends Controller
                 Rule::in(Order::PAYMENT_STATUSES),
             ],
             'notes' => ['nullable', 'string', 'max:500'],
+            'tracking_number' => ['nullable', 'string', 'max:100'],
         ], [
             'status.required' => 'Status pesanan wajib diisi.',
             'status.in' => 'Status pesanan tidak valid.',
@@ -123,7 +125,15 @@ class AdminOrderController extends Controller
                     ->sort()
                     ->values();
 
-                // Lock row variants inside the transaction
+                // Extract unique product IDs for non-variant items
+                $nonVariantProductIds = $lockedOrder->items
+                    ->filter(fn($i) => !$i->variant_id)
+                    ->pluck('product_id')
+                    ->unique()
+                    ->sort()
+                    ->values();
+
+                // Lock variant rows inside the transaction
                 $lockedVariants = collect();
                 if ($variantIds->isNotEmpty()) {
                     $lockedVariants = ProductVariant::whereIn('id', $variantIds)
@@ -132,7 +142,16 @@ class AdminOrderController extends Controller
                         ->keyBy('id');
                 }
 
-                // Aggregate quantities by variant to handle multiple items with the same variant safely
+                // Lock non-variant product rows inside the transaction
+                $lockedProducts = collect();
+                if ($nonVariantProductIds->isNotEmpty()) {
+                    $lockedProducts = Product::whereIn('id', $nonVariantProductIds)
+                        ->lockForUpdate()
+                        ->get()
+                        ->keyBy('id');
+                }
+
+                // Aggregate quantities by variant ID
                 $quantitiesByVariant = [];
                 foreach ($lockedOrder->items as $item) {
                     if ($item->variant_id) {
@@ -140,12 +159,26 @@ class AdminOrderController extends Controller
                     }
                 }
 
+                // Aggregate quantities by product ID for non-variant items
+                $quantitiesByProduct = [];
+                foreach ($lockedOrder->items as $item) {
+                    if (!$item->variant_id) {
+                        $quantitiesByProduct[$item->product_id] = ($quantitiesByProduct[$item->product_id] ?? 0) + $item->quantity;
+                    }
+                }
+
                 // 1. If transitioning to 'cancelled' from an active status, restore stock
                 if ($oldStatus !== 'cancelled' && $newStatus === 'cancelled') {
+                    // Restore variant stock
                     foreach ($quantitiesByVariant as $variantId => $qty) {
                         if ($lockedVariants->has($variantId)) {
-                            $variant = $lockedVariants->get($variantId);
-                            $variant->increment('stock', $qty);
+                            $lockedVariants->get($variantId)->increment('stock', $qty);
+                        }
+                    }
+                    // Restore non-variant product stock
+                    foreach ($quantitiesByProduct as $productId => $qty) {
+                        if ($lockedProducts->has($productId)) {
+                            $lockedProducts->get($productId)->increment('stock', $qty);
                         }
                     }
                 }
@@ -153,7 +186,7 @@ class AdminOrderController extends Controller
                 // 2. If transitioning from 'cancelled' back to an active status (confirmed/processing/shipped)
                 $activeStatuses = ['confirmed', 'processing', 'shipped'];
                 if ($oldStatus === 'cancelled' && in_array($newStatus, $activeStatuses)) {
-                    // First pass: cek stock terlebih dahulu
+                    // First pass: check variant stock
                     foreach ($quantitiesByVariant as $variantId => $neededQty) {
                         $variant = $lockedVariants->get($variantId);
                         if (!$variant) {
@@ -172,10 +205,33 @@ class AdminOrderController extends Controller
                         }
                     }
 
-                    // Second pass: jika stock cukup → decrement sesuai quantity (tidak boleh stock negatif)
+                    // First pass: check non-variant product stock
+                    foreach ($quantitiesByProduct as $productId => $neededQty) {
+                        $product = $lockedProducts->get($productId);
+                        if (!$product) {
+                            throw new HttpResponseException(response()->json([
+                                'message' => "Produk tidak ditemukan.",
+                            ], 422));
+                        }
+
+                        if ($product->stock < $neededQty) {
+                            throw new HttpResponseException(response()->json([
+                                'message' => "Stok tidak mencukupi untuk produk '{$product->name}'. Stok tersedia: {$product->stock}, dibutuhkan: {$neededQty}.",
+                                'errors' => [
+                                    'status' => ["Stok tidak mencukupi untuk produk '{$product->name}' (tersedia: {$product->stock}, dibutuhkan: {$neededQty})."],
+                                ],
+                            ], 422));
+                        }
+                    }
+
+                    // Second pass: decrement variant stock
                     foreach ($quantitiesByVariant as $variantId => $neededQty) {
-                        $variant = $lockedVariants->get($variantId);
-                        $variant->decrement('stock', $neededQty);
+                        $lockedVariants->get($variantId)->decrement('stock', $neededQty);
+                    }
+
+                    // Second pass: decrement non-variant product stock
+                    foreach ($quantitiesByProduct as $productId => $neededQty) {
+                        $lockedProducts->get($productId)->decrement('stock', $neededQty);
                     }
                 }
 
@@ -189,11 +245,65 @@ class AdminOrderController extends Controller
             if (array_key_exists('notes', $validated)) {
                 $lockedOrder->notes = $validated['notes'];
             }
+
+            if (array_key_exists('tracking_number', $validated)) {
+                $lockedOrder->tracking_number = $validated['tracking_number'];
+            }
+
             $lockedOrder->save();
         });
 
         return (new OrderResource($order->fresh(['items', 'customer'])))
             ->response()
             ->setStatusCode(200);
+    }
+
+    /**
+     * Dashboard statistics for admin.
+     */
+    public function dashboardStats(): JsonResponse
+    {
+        // Order counts by status
+        $statusCounts = Order::selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        $totalOrders = Order::count();
+        $activeOrders = Order::whereIn('status', ['pending', 'confirmed', 'processing', 'shipped'])->count();
+
+        // Revenue: sum of total for orders with payment_status = 'paid'
+        $totalRevenue = Order::where('payment_status', 'paid')->sum('total');
+
+        // Monthly revenue (last 12 months)
+        $monthlyRevenue = Order::selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, SUM(total) as revenue")
+            ->where('payment_status', 'paid')
+            ->where('created_at', '>=', now()->subMonths(12)->startOfMonth())
+            ->groupByRaw("DATE_FORMAT(created_at, '%Y-%m')")
+            ->orderBy('month')
+            ->get();
+
+        // Recent orders (last 10)
+        $recentOrders = Order::with('customer')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get()
+            ->map(fn($o) => [
+                'id' => $o->id,
+                'order_number' => $o->order_number,
+                'customer_name' => $o->customer?->name ?? $o->shipping_name,
+                'total' => $o->total,
+                'status' => $o->status,
+                'payment_status' => $o->payment_status,
+                'created_at' => $o->created_at,
+            ]);
+
+        return response()->json([
+            'total_orders' => $totalOrders,
+            'active_orders' => $activeOrders,
+            'total_revenue' => (float) $totalRevenue,
+            'status_counts' => $statusCounts,
+            'monthly_revenue' => $monthlyRevenue,
+            'recent_orders' => $recentOrders,
+        ]);
     }
 }

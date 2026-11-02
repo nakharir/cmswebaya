@@ -24,6 +24,7 @@ class ProductResource extends JsonResource
             'description' => $this->description,
             'material' => $this->material,
             'base_price' => (float) $this->base_price,
+            'weight' => (int) ($this->weight ?? 250),
             'stock' => (int) ($this->stock ?? 0),
             'is_active' => (bool) $this->is_active,
             'image' => $primaryImageUrl,
