@@ -6,23 +6,24 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('ecommerce_orders', function (Blueprint $table) {
-            $table->string('tracking_number')->nullable()->after('transfer_proof');
-        });
+        // Tambahkan kolom hanya jika belum tersedia.
+        if (!Schema::hasColumn('ecommerce_orders', 'tracking_number')) {
+            Schema::table('ecommerce_orders', function (Blueprint $table) {
+                $table->string('tracking_number', 100)
+                    ->nullable()
+                    ->after('transfer_proof');
+            });
+        }
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('ecommerce_orders', function (Blueprint $table) {
-            $table->dropColumn('tracking_number');
-        });
+        if (Schema::hasColumn('ecommerce_orders', 'tracking_number')) {
+            Schema::table('ecommerce_orders', function (Blueprint $table) {
+                $table->dropColumn('tracking_number');
+            });
+        }
     }
 };
