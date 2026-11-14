@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Layout from '../../../layout/layout';
+import { BRANDING_ASSETS } from '@/layout/branding';
 
 interface AppLayoutProps {
     children: React.ReactNode;
@@ -15,11 +16,11 @@ export const metadata: Metadata = {
         title: 'KREZOEMA — Admin Dashboard',
         url: 'https://krezoema.com',
         description: 'Creative Craft & Handmade Accessories Admin Panel',
-        images: ['/logo-krezoema.png'],
+        images: [BRANDING_ASSETS.logo],
         ttl: 604800
     },
     icons: {
-        icon: '/logo-krezoema.png'
+        icon: BRANDING_ASSETS.favicon
     }
 };
 

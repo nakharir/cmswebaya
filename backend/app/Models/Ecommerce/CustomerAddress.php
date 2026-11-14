@@ -19,6 +19,7 @@ class CustomerAddress extends Model
         'recipient_name',
         'whatsapp',
         'address',
+        'village',
         'district',
         'city',
         'province',

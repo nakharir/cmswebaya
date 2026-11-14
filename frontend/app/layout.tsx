@@ -6,6 +6,7 @@ import 'primeflex/primeflex.css';
 import 'primeicons/primeicons.css';
 import '../styles/layout/layout.scss';
 import '../styles/demo/Demos.scss';
+import { BRANDING_ASSETS } from '../layout/branding';
 
 
 interface RootLayoutProps {
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <html lang="en" suppressHydrationWarning>
             <head>
                 <link id="theme-css" href={`/themes/lara-light-indigo/theme.css`} rel="stylesheet"></link>
+                <link rel="icon" href={BRANDING_ASSETS.favicon} type="image/png" />
             </head>
             <body>
                 <PrimeReactProvider>

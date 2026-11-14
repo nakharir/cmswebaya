@@ -5,6 +5,7 @@ import { classNames } from 'primereact/utils';
 import React, { forwardRef, useContext, useImperativeHandle, useRef } from 'react';
 import { AppTopbarRef } from '@/types';
 import { LayoutContext } from './context/layoutcontext';
+import { BRANDING_ASSETS } from './branding';
 
 const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
     const { layoutConfig, layoutState, onMenuToggle, showProfileSidebar } = useContext(LayoutContext);
@@ -21,11 +22,7 @@ const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
     return (
         <div className="layout-topbar">
             <Link href="/" className="layout-topbar-logo flex align-items-center gap-2" style={{ textDecoration: 'none' }}>
-                <img src="/logo-krezoema.png" alt="KREZOEMA" style={{ height: '2.5rem', width: 'auto', objectFit: 'contain' }} />
-                <div className="flex flex-column">
-                    <span className="font-bold text-lg" style={{ color: '#272329', letterSpacing: '0.04em', lineHeight: 1.1 }}>KREZOEMA</span>
-                    <span className="text-500 font-medium" style={{ fontSize: '0.68rem', letterSpacing: '0.02em', color: '#B94F76' }}>Creative Craft &amp; Accessories</span>
-                </div>
+                <img src={BRANDING_ASSETS.logo} alt="KREZOEMA" style={{ height: '2.5rem', width: 'auto', objectFit: 'contain' }} />
             </Link>
 
             <button ref={menubuttonRef} type="button" className="p-link layout-menu-button layout-topbar-button" onClick={onMenuToggle}>
