@@ -24,7 +24,7 @@ class UserController extends Controller
         $user->password = Hash::make($req->input('password'));
         $user->phone = $req->input('phone');
         $user->address = $req->input('address');
-        $user->status = 0; // Customer
+        $user->status = $req->input('status', 1);
 
         $sidebars = [];
         if (class_exists('App\Models\Sidebar')) {
