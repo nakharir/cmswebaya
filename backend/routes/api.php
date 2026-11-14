@@ -20,25 +20,78 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 //user
-Route::post('/register', [UserController::class, 'register']); //tambah data
-Route::post('/login', [UserController::class, 'login']); //login
-Route::put('/updateuserbyid/{id}', [UserController::class, 'update']); //update data
-//sidebar
-Route::get('/user/{userId}/sidebars', [UserController::class, 'getUserWithSidebars']); //get data with sidebar
-Route::get('/getallusersidebar', [UserController::class, 'getAllUsers']); //get all data
-Route::post('/sidebars/update-status', [UserController::class, 'updateSidebarStatus']); //update status
-Route::put('/sync-user-sidebars', [UserController::class, 'syncUserSidebars']); //sync user sidebar
-
-//verify user
-Route::post('/verify-user', [UserController::class, 'verifyUser']); //verify user
 
 // ==========================================
-// Kelola Admin / Operator Routes
+// User Authentication - Public Routes
 // ==========================================
-Route::get('/getoperator', [UserController::class, 'getOperators']);
-Route::post('/tambahoperator', [UserController::class, 'addOperator']);
-Route::put('/updateoperator/{id}', [UserController::class, 'updateOperator']);
-Route::delete('/deleteoperator/{id}', [UserController::class, 'deleteOperator']);
+
+Route::post('/register', [UserController::class, 'register'])
+    ->middleware('throttle:5,1');
+
+Route::post('/login', [UserController::class, 'login'])
+    ->middleware('throttle:5,1');
+
+
+// ==========================================
+// User Management - Protected Routes
+// ==========================================
+
+Route::middleware('auth:sanctum')->group(function () {
+
+    // User Profile and Management
+    Route::put('/updateuserbyid/{id}', [
+        UserController::class,
+        'update'
+    ]);
+
+    Route::get('/user/{userId}/sidebars', [
+        UserController::class,
+        'getUserWithSidebars'
+    ]);
+
+    Route::get('/getallusersidebar', [
+        UserController::class,
+        'getAllUsers'
+    ]);
+
+    // Sidebar Management
+    Route::post('/sidebars/update-status', [
+        UserController::class,
+        'updateSidebarStatus'
+    ]);
+
+    Route::put('/sync-user-sidebars', [
+        UserController::class,
+        'syncUserSidebars'
+    ]);
+
+    // User Verification
+    Route::post('/verify-user', [
+        UserController::class,
+        'verifyUser'
+    ])->middleware('throttle:5,1');
+
+    // Admin and Operator Management
+    Route::get('/getoperator', [
+        UserController::class,
+        'getOperators'
+    ]);
+
+    Route::post('/tambahoperator', [
+        UserController::class,
+        'addOperator'
+    ]);
+
+    Route::put('/updateoperator/{id}', [
+        UserController::class,
+        'updateOperator'
+    ]);
+
+    Route::delete('/deleteoperator/{id}', [
+        UserController::class,
+        'deleteOperator'
+    ]);
+});
 
 // ==========================================
 // KREZOEMA Ecommerce Routes (Stage 11 - 15)

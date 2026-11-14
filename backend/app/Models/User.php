@@ -6,22 +6,37 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-
 class User extends Authenticatable
+
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    public $timestamps = false;
+    /*
+    |--------------------------------------------------------------------------
+    | Role Constants
+    |--------------------------------------------------------------------------
+    */
+
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+    public const ROLE_ADMIN = 'admin';
+    public const ROLE_OPERATOR = 'operator';
+    public const ROLE_ADMIN_PROVINSI = 'admin_provinsi';
+    public const ROLE_ADMIN_KABUPATEN = 'admin_kabupaten';
+    public const ROLE_ADMIN_KECAMATAN = 'admin_kecamatan';
+    public const ROLE_CUSTOMER = 'customer';
+
+    /*
+    |--------------------------------------------------------------------------
+    | Mass Assignment
+    |--------------------------------------------------------------------------
+    */
 
     protected $fillable = [
-        'id',
         'name',
         'email',
         'password',
         'phone',
         'address',
-        'status',
-        'sidebars' 
     ];
 
     protected $hidden = [
@@ -31,49 +46,111 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'sidebars' => 'array'
+        'sidebars' => 'array',
     ];
 
     protected $attributes = [
         'status' => 0,
+        'role' => self::ROLE_CUSTOMER,
     ];
 
-    /**
-     * Check if user is staff (SuperAdmin, Admin, or Operator).
-     */
-    public function isStaff(): bool
+    /*
+    |--------------------------------------------------------------------------
+    | Role Checking
+    |--------------------------------------------------------------------------
+    */
+
+    public function hasRole(string|array $roles): bool
     {
-        return in_array((int) $this->status, [1, 2, 3], true);
+        return in_array($this->role, (array) $roles, true);
     }
 
-    /**
-     * Check if user is admin (SuperAdmin or Admin).
-     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole(self::ROLE_SUPER_ADMIN);
+    }
+
     public function isAdmin(): bool
     {
-        return in_array((int) $this->status, [1, 2], true);
+        return $this->hasRole([
+            self::ROLE_SUPER_ADMIN,
+            self::ROLE_ADMIN,
+        ]);
     }
 
-    /**
-     * Check if user is a standard customer.
-     */
+    public function isOperator(): bool
+    {
+        return $this->hasRole(self::ROLE_OPERATOR);
+    }
+
+    public function isProvinceAdmin(): bool
+    {
+        return $this->hasRole(self::ROLE_ADMIN_PROVINSI);
+    }
+
+    public function isRegencyAdmin(): bool
+    {
+        return $this->hasRole(self::ROLE_ADMIN_KABUPATEN);
+    }
+
+    public function isDistrictAdmin(): bool
+    {
+        return $this->hasRole(self::ROLE_ADMIN_KECAMATAN);
+    }
+
+    public function isRegionalAdmin(): bool
+    {
+        return $this->hasRole([
+            self::ROLE_ADMIN_PROVINSI,
+            self::ROLE_ADMIN_KABUPATEN,
+            self::ROLE_ADMIN_KECAMATAN,
+        ]);
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->hasRole([
+            self::ROLE_SUPER_ADMIN,
+            self::ROLE_ADMIN,
+            self::ROLE_OPERATOR,
+            self::ROLE_ADMIN_PROVINSI,
+            self::ROLE_ADMIN_KABUPATEN,
+            self::ROLE_ADMIN_KECAMATAN,
+        ]);
+    }
+
     public function isCustomer(): bool
     {
-        return !$this->isStaff();
+        return $this->hasRole(self::ROLE_CUSTOMER);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ecommerce Relationships
+    |--------------------------------------------------------------------------
+    */
 
     public function addresses(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\Ecommerce\CustomerAddress::class, 'user_id');
+        return $this->hasMany(
+            \App\Models\Ecommerce\CustomerAddress::class,
+            'user_id'
+        );
     }
 
     public function defaultAddress(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        return $this->hasOne(\App\Models\Ecommerce\CustomerAddress::class, 'user_id')->where('is_default', true);
+        return $this->hasOne(
+            \App\Models\Ecommerce\CustomerAddress::class,
+            'user_id'
+        )->where('is_default', true);
     }
 
     public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\Ecommerce\Order::class, 'customer_id');
+        return $this->hasMany(
+            \App\Models\Ecommerce\Order::class,
+            'customer_id'
+        );
     }
 }

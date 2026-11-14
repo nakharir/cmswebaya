@@ -1,53 +1,78 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-    const path = request.nextUrl.pathname
-    
-    // Ambil data user dari cookies
-    const userInfo = request.cookies.get('user-info')?.value
-    
+    const path = request.nextUrl.pathname;
+    const userInfo = request.cookies.get('user-info')?.value;
+
     if (!userInfo) {
-        // Jika tidak ada user info, redirect ke login
-        return NextResponse.redirect(new URL('/auth/login', request.url))
+        return NextResponse.redirect(new URL('/auth/login', request.url));
     }
 
     try {
-        const user = JSON.parse(userInfo)
-        
-        // Cek role/akses berdasarkan path
+        const user = JSON.parse(userInfo);
+        const role = user.role;
+
+        const isAdmin = role === 'admin' || role === 'super_admin';
+        const isOperator = role === 'operator';
+        const isCustomer = role === 'customer';
+
+        // Arahkan pengguna sesuai role saat membuka halaman utama
         if (path === '/') {
-            if (user.status === 2 || user.status === 3) {
-                return NextResponse.redirect(new URL('/operator', request.url))
-            } else if (user.status === 1) {
-                return NextResponse.redirect(new URL('/admin', request.url))
+            if (isAdmin) {
+                return NextResponse.redirect(new URL('/admin', request.url));
             }
+
+            if (isOperator) {
+                return NextResponse.redirect(new URL('/operator', request.url));
+            }
+
+            if (isCustomer) {
+                return NextResponse.redirect(new URL('/customer/produk', request.url));
+            }
+
+            return NextResponse.redirect(new URL('/auth/access', request.url));
         }
 
-        // Admin hanya boleh akses /admin
+        // Halaman admin hanya untuk admin dan super admin
         if (path.startsWith('/admin')) {
-            if (user.status === 1) {
-                return NextResponse.next()
+            if (isAdmin) {
+                return NextResponse.next();
             }
-            // Bukan admin, tolak akses
-            return NextResponse.redirect(new URL('/auth/access', request.url))
+
+            return NextResponse.redirect(new URL('/auth/access', request.url));
         }
 
-        // Operator hanya boleh akses /operator
+                // Halaman operator dan CMS
         if (path.startsWith('/operator')) {
-            if (user.status === 2 || user.status === 3) {
-                return NextResponse.next()
+            const isAdminCmsPage = [
+                '/operator/CMS_Landing',
+                '/operator/CMS_Profile',
+                '/operator/CMS_berita',
+                '/operator/CMS_Hubkami',
+            ].some((cmsPath) => path.startsWith(cmsPath));
+
+            if (isOperator || (isAdmin && isAdminCmsPage)) {
+                return NextResponse.next();
             }
-            // Bukan operator, tolak akses
-            return NextResponse.redirect(new URL('/auth/access', request.url))
+
+            return NextResponse.redirect(new URL('/auth/access', request.url));
         }
 
-        return NextResponse.next()
-        
-    } catch (error) {
-        // Jika terjadi error parsing JSON, hapus cookie dan redirect ke login
-        const response = NextResponse.redirect(new URL('/auth/login', request.url))
-        response.cookies.delete('user-info')
-        return response
+        // Halaman customer hanya untuk customer
+        if (path.startsWith('/customer')) {
+            if (isCustomer) {
+                return NextResponse.next();
+            }
+
+            return NextResponse.redirect(new URL('/auth/access', request.url));
+        }
+
+        return NextResponse.next();
+
+    } catch {
+        const response = NextResponse.redirect(new URL('/auth/login', request.url));
+        response.cookies.delete('user-info');
+        return response;
     }
 }
 
@@ -56,6 +81,6 @@ export const config = {
         '/',
         '/admin/:path*',
         '/operator/:path*',
+        '/customer/:path*',
     ]
-}
-
+};

@@ -1,38 +1,48 @@
-/* eslint-disable @next/next/no-img-element */
+
 "use client";
 
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import AppMenuitem from "./AppMenuitem";
-import { LayoutContext } from "./context/layoutcontext";
 import { MenuProvider } from "./context/menucontext";
 import { AppMenuItem } from "@/types";
 
 const AppMenu = () => {
-  const { layoutConfig } = useContext(LayoutContext);
-  const [status, setStatus] = useState<number>(1);
+  const [role, setRole] = useState<string>("");
 
+  // Membaca role pengguna dari cookie
   useEffect(() => {
     try {
       const cookies = document.cookie.split(";");
+
       const userInfoCookie = cookies.find((cookie) =>
         cookie.trim().startsWith("user-info=")
       );
+
       if (userInfoCookie) {
-        const userInfo = userInfoCookie.split("=")[1];
+        const userInfo = userInfoCookie
+          .trim()
+          .substring("user-info=".length);
+
         const user = JSON.parse(userInfo);
-        setStatus(user.status);
+
+        setRole(typeof user.role === "string" ? user.role : "");
       }
     } catch (error) {
-      console.error("Error reading user cookie:", error);
+      console.error("Error membaca user cookie:", error);
+      setRole("");
     }
   }, []);
 
-  // 🧭 Menu Admin KREZOEMA (status = 1)
+  // Menu Admin dan Super Admin
   const modelAdmin: AppMenuItem[] = [
     {
       label: "Dashboard",
       items: [
-        { label: "Dashboard", icon: "pi pi-fw pi-home", to: "/admin" }
+        {
+          label: "Dashboard",
+          icon: "pi pi-fw pi-home",
+          to: "/admin",
+        },
       ],
     },
     {
@@ -95,12 +105,16 @@ const AppMenu = () => {
     },
   ];
 
-  // 🧭 Menu Operator KREZOEMA (status = 2 / 3)
+  // Menu Operator
   const modelOperator: AppMenuItem[] = [
     {
       label: "Dashboard",
       items: [
-        { label: "Dashboard", icon: "pi pi-fw pi-home", to: "/operator" }
+        {
+          label: "Dashboard",
+          icon: "pi pi-fw pi-home",
+          to: "/operator",
+        },
       ],
     },
     {
@@ -152,14 +166,42 @@ const AppMenu = () => {
     },
   ];
 
-  const menuModel = status === 1 ? modelAdmin : modelOperator;
+  // Menu Customer
+  const modelCustomer: AppMenuItem[] = [
+    {
+      label: "Katalog",
+      icon: "pi pi-shopping-bag",
+      items: [
+        {
+          label: "Produk",
+          icon: "pi pi-box",
+          to: "/customer/produk",
+        },
+      ],
+    },
+  ];
+
+  // Menentukan menu berdasarkan role pengguna
+  const menuModel =
+    role === "admin" || role === "super_admin"
+      ? modelAdmin
+      : role === "operator"
+      ? modelOperator
+      : role === "customer"
+      ? modelCustomer
+      : [];
 
   return (
     <MenuProvider>
       <ul className="layout-menu">
         {menuModel.map((item, i) =>
           !item?.seperator ? (
-            <AppMenuitem item={item} root={true} index={i} key={item.label} />
+            <AppMenuitem
+              item={item}
+              root={true}
+              index={i}
+              key={item.label}
+            />
           ) : (
             <li className="menu-separator" key={i}></li>
           )

@@ -31,10 +31,11 @@ import { formatRupiah, getImageUrl, extractErrorMessage } from '@/app/api/ecomme
 import { ProductDetailDialog } from './ProductDetailDialog';
 
 interface ProductListProps {
-  basePath: string; // e.g. '/admin/produk' or '/operator/produk'
+  basePath: string;
   canCreate?: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
+  usePublicDetail?: boolean;
 }
 
 export const ProductList: React.FC<ProductListProps> = ({
@@ -42,6 +43,7 @@ export const ProductList: React.FC<ProductListProps> = ({
   canCreate = true,
   canEdit = true,
   canDelete = true,
+  usePublicDetail = false,
 }) => {
   const router = useRouter();
   const toast = useRef<Toast>(null);
@@ -179,17 +181,21 @@ export const ProductList: React.FC<ProductListProps> = ({
     }
   };
 
-  // View detail
-  const handleOpenDetail = async (prod: EcommerceProduct) => {
-    try {
-      // Fetch full admin product detail to get images & all variants
-      const full = await ecommerceService.getAdminProduct(prod.id);
-      setDetailProduct(full);
-    } catch {
-      setDetailProduct(prod);
-    }
-    setShowDetailDialog(true);
-  };
+ // View detail
+const handleOpenDetail = async (prod: EcommerceProduct) => {
+  try {
+    const full = usePublicDetail
+      ? await ecommerceService.getProductBySlug(prod.slug)
+      : await ecommerceService.getAdminProduct(prod.id);
+
+    setDetailProduct(full);
+  } catch (err) {
+    console.error('Gagal mengambil detail produk:', err);
+    setDetailProduct(prod);
+  }
+
+  setShowDetailDialog(true);
+};
 
   // Sort Options
   const sortDropdownOptions = [

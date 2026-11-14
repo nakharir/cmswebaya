@@ -40,34 +40,34 @@ const LoginPage = () => {
                 }
             );
 
-            console.log('Login response:', response.data);
+// Ambil data user dari response Laravel
+const userData = response.data?.data ?? response.data;
 
-            // Handle berbagai format response Laravel:
-            // 1. Direct: { status: 1, token: '...' }
-            // 2. Nested: { data: { status: 1, token: '...' } }
-            const userData = response.data?.data ?? response.data;
+// Pastikan data user dan role tersedia
+if (!userData || !userData.role) {
+    console.error('Format response tidak dikenali:', response.data);
+    router.push('/auth/error');
+    return;
+}
 
-            if (!userData || userData.status === undefined) {
-                console.error('Format response tidak dikenali:', response.data);
-                router.push('/auth/error');
-                return;
-            }
+// Simpan token Bearer
+if (userData.token) {
+    document.cookie = `auth-token=${userData.token}; path=/; SameSite=Lax`;
+}
 
-            // Simpan token Bearer ke cookie terpisah untuk digunakan di request API
-            if (userData.token) {
-                document.cookie = `auth-token=${userData.token}; path=/; SameSite=Lax`;
-            }
+// Simpan informasi user untuk middleware
+document.cookie = `user-info=${JSON.stringify(userData)}; path=/; SameSite=Lax`;
 
-            // Simpan user info ke cookie untuk middleware (proteksi route)
-            document.cookie = `user-info=${JSON.stringify(userData)}; path=/; SameSite=Lax`;
-
-            if (userData.status === 2 || userData.status === 3) {
-                router.push('/operator/');
-            } else if (userData.status === 1) {
-                router.push('/admin/');
-            } else {
-                router.push('/auth/error');
-            }
+// Arahkan berdasarkan role
+if (userData.role === 'super_admin' || userData.role === 'admin') {
+    router.push('/admin/');
+} else if (userData.role === 'operator') {
+    router.push('/operator/');
+} else if (userData.role === 'customer') {
+    router.push('/customer/produk');
+} else {
+    router.push('/auth/access');
+}
         } catch (error: any) {
             console.error('Terjadi kesalahan!', error);
 

@@ -8,12 +8,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureAdminOrOperator
 {
-    /**
-     * Handle an incoming request.
-     * Ensure the authenticated user has back-office admin or operator privileges.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
@@ -24,9 +18,13 @@ class EnsureAdminOrOperator
             ], 401);
         }
 
-        // Status 1 = SuperAdmin, 2 = Admin, 3 = Visitor / Operator
-        // Customers have status = 0 (or null) and must be rejected with 403 Forbidden
-        if (!in_array((int) $user->status, [1, 2, 3], true)) {
+        // Hanya Super Admin, Admin, dan Operator
+        // yang diizinkan mengakses dashboard admin umum.
+        if (!$user->hasRole([
+            'super_admin',
+            'admin',
+            'operator',
+        ])) {
             return response()->json([
                 'message' => 'Anda tidak memiliki hak akses ke halaman admin ini.',
             ], 403);
