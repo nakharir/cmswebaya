@@ -18,6 +18,7 @@ class StoreCustomerAddressRequest extends FormRequest
             'recipient_name' => ['required', 'string', 'max:255'],
             'whatsapp' => ['required', 'string', 'max:30'],
             'address' => ['required', 'string'],
+            'village' => ['nullable', 'string', 'max:100'],
             'district' => ['required', 'string', 'max:100'],
             'city' => ['required', 'string', 'max:100'],
             'province' => ['required', 'string', 'max:100'],

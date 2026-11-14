@@ -79,12 +79,13 @@ class UserController extends Controller
             'address' => 'nullable|string|max:255',
         ]);
 
-        $user = new User();
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
-        $user->password = Hash::make($validated['password']);
-        $user->phone = $validated['phone'] ?? null;
-        $user->address = $validated['address'] ?? null;
+        $user = new User;
+        $user->name = $req->input('name');
+        $user->email = $req->input('email');
+        $user->password = Hash::make($req->input('password'));
+        $user->phone = $req->input('phone');
+        $user->address = $req->input('address');
+        $user->status = $req->input('status', 1);
 
         // Register publik selalu menjadi Customer.
         $user->role = User::ROLE_CUSTOMER;

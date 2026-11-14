@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import React from 'react';
 import { Button } from 'primereact/button';
+import { BRANDING_ASSETS } from '@/layout/branding';
 
 const ErrorPage = () => {
     const router = useRouter();
@@ -10,7 +11,7 @@ const ErrorPage = () => {
     return (
         <div className="flex align-items-center justify-content-center min-h-screen min-w-screen overflow-hidden" style={{ backgroundColor: '#FAF8F5' }}>
             <div className="flex flex-column align-items-center justify-content-center p-4">
-                <img src="/logo-krezoema.png" alt="KREZOEMA" className="mb-4" style={{ height: '4rem', width: 'auto' }} />
+                <img src={BRANDING_ASSETS.logo} alt="KREZOEMA" className="mb-4" style={{ height: '4rem', width: 'auto', objectFit: 'contain' }} />
                 <div
                     className="card p-6 flex flex-column align-items-center text-center"
                     style={{

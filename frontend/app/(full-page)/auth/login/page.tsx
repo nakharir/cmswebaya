@@ -8,6 +8,7 @@ import { LayoutContext } from '../../../../layout/context/layoutcontext';
 import { InputText } from 'primereact/inputtext';
 import axios from 'axios';
 import { API_ENDPOINTS } from '@/app/api/losbackend/api';
+import { BRANDING_ASSETS } from '@/layout/branding';
 
 const LoginPage = () => {
     const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +36,8 @@ const LoginPage = () => {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                    },
+                        Accept: 'application/json'
+                    }
                 }
             );
 
@@ -73,16 +74,10 @@ if (userData.role === 'super_admin' || userData.role === 'admin') {
 
             if (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error') {
                 // Backend tidak dapat dijangkau
-                setErrorMessage(
-                    `Tidak dapat terhubung ke server (${process.env.NEXT_PUBLIC_API_URL}). ` +
-                    'Pastikan backend Laravel sudah berjalan.'
-                );
+                setErrorMessage(`Tidak dapat terhubung ke server (${process.env.NEXT_PUBLIC_API_URL}). ` + 'Pastikan backend Laravel sudah berjalan.');
             } else if (error?.response?.status === 419) {
                 // CSRF token mismatch — backend menolak karena tidak ada/salah CSRF token
-                setErrorMessage(
-                    'Sesi keamanan tidak valid (CSRF). Refresh halaman dan coba lagi, ' +
-                    'atau pastikan CORS & Sanctum sudah dikonfigurasi di backend.'
-                );
+                setErrorMessage('Sesi keamanan tidak valid (CSRF). Refresh halaman dan coba lagi, ' + 'atau pastikan CORS & Sanctum sudah dikonfigurasi di backend.');
             } else if (error?.response?.status === 401 || error?.response?.status === 422) {
                 // Kredensial salah
                 setErrorMessage('Email atau password salah. Silakan coba lagi.');
@@ -102,17 +97,10 @@ if (userData.role === 'super_admin' || userData.role === 'admin') {
     return (
         <div className="flex flex-column md:flex-row min-h-screen" style={{ backgroundColor: '#FAF8F5' }}>
             {/* Bagian Kiri - Form Login */}
-            <div
-                className="w-full md:w-6 flex flex-column justify-content-center align-items-center p-6 md:p-8"
-                style={{ backgroundColor: '#FFFFFF' }}
-            >
+            <div className="w-full md:w-6 flex flex-column justify-content-center align-items-center p-6 md:p-8" style={{ backgroundColor: '#FFFFFF' }}>
                 <div className="w-full" style={{ maxWidth: '420px' }}>
                     <div className="mb-5 flex align-items-center gap-3">
-                        <img
-                            src="/logo-krezoema.png"
-                            alt="KREZOEMA Logo"
-                            style={{ width: '48px', height: '48px', objectFit: 'contain' }}
-                        />
+                        <img src={BRANDING_ASSETS.logo} alt="KREZOEMA Logo" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
                         <div>
                             <h2 className="m-0 text-2xl font-bold" style={{ color: '#272329', letterSpacing: '0.03em' }}>
                                 KREZOEMA
@@ -137,16 +125,7 @@ if (userData.role === 'super_admin' || userData.role === 'admin') {
                             <label htmlFor="email" className="block text-sm font-semibold mb-2" style={{ color: '#272329' }}>
                                 Email
                             </label>
-                            <InputText
-                                id="email"
-                                type="email"
-                                placeholder="Masukkan email terdaftar"
-                                className="w-full p-3 border-round-md"
-                                style={{ borderColor: '#E5E7EB' }}
-                                value={email}
-                                onChange={handleEmailChange}
-                                required
-                            />
+                            <InputText id="email" type="email" placeholder="Masukkan email terdaftar" className="w-full p-3 border-round-md" style={{ borderColor: '#E5E7EB' }} value={email} onChange={handleEmailChange} required />
                         </div>
 
                         <div className="mb-4">
@@ -169,10 +148,7 @@ if (userData.role === 'super_admin' || userData.role === 'admin') {
 
                         {/* Alert Error Login */}
                         {showAlert && (
-                            <div
-                                className="p-3 mb-4 border-round text-sm font-medium flex align-items-center gap-2"
-                                style={{ backgroundColor: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5' }}
-                            >
+                            <div className="p-3 mb-4 border-round text-sm font-medium flex align-items-center gap-2" style={{ backgroundColor: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5' }}>
                                 <i className="pi pi-exclamation-triangle"></i>
                                 <span>{errorMessage}</span>
                             </div>
@@ -217,19 +193,11 @@ if (userData.role === 'super_admin' || userData.role === 'admin') {
                             boxShadow: '0 4px 20px rgba(217, 108, 145, 0.08)'
                         }}
                     >
-                        <img
-                            src="/logo-krezoema.png"
-                            alt="KREZOEMA"
-                            className="mb-4"
-                            style={{ width: '100px', height: '100px', objectFit: 'contain' }}
-                        />
+                        <img src={BRANDING_ASSETS.logo} alt="KREZOEMA" className="mb-4" style={{ width: '100px', height: '100px', objectFit: 'contain' }} />
                         <h2 className="text-3xl font-extrabold m-0 mb-2" style={{ color: '#272329' }}>
                             KREZOEMA
                         </h2>
-                        <span
-                            className="inline-block px-3 py-1 border-round-md text-xs font-bold mb-4"
-                            style={{ backgroundColor: '#F8E4EB', color: '#B94F76' }}
-                        >
+                        <span className="inline-block px-3 py-1 border-round-md text-xs font-bold mb-4" style={{ backgroundColor: '#F8E4EB', color: '#B94F76' }}>
                             CREATIVE CRAFT &amp; HANDMADE ACCESSORIES
                         </span>
                         <blockquote

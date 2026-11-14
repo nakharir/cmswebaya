@@ -21,6 +21,7 @@ class CustomerAddressResource extends JsonResource
             'recipient_name' => $this->recipient_name,
             'whatsapp' => $this->whatsapp,
             'address' => $this->address,
+            'village' => $this->village,
             'district' => $this->district,
             'city' => $this->city,
             'province' => $this->province,

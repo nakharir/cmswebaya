@@ -18,6 +18,7 @@ class UpdateCustomerAddressRequest extends FormRequest
             'recipient_name' => ['sometimes', 'required', 'string', 'max:255'],
             'whatsapp' => ['sometimes', 'required', 'string', 'max:30'],
             'address' => ['sometimes', 'required', 'string'],
+            'village' => ['sometimes', 'nullable', 'string', 'max:100'],
             'district' => ['sometimes', 'required', 'string', 'max:100'],
             'city' => ['sometimes', 'required', 'string', 'max:100'],
             'province' => ['sometimes', 'required', 'string', 'max:100'],
