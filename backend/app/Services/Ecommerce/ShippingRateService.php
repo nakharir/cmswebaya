@@ -82,13 +82,19 @@ class ShippingRateService
     {
         $weightKg = (int) max(1, ceil($totalWeightGrams / 1000));
 
-        // 1. Fetch rates matching province or wildcard '*'
+        // 1. Fetch only supported couriers (JNE REG and J&T EZ), excluding SiCepat and duplicate services
         $rates = ShippingRate::active()
+            ->whereIn('courier', ['jne', 'jnt'])
             ->where(function ($query) use ($province) {
                 $query->where('province', $province)
                     ->orWhere('province', '*');
             })
-            ->get();
+            ->get()
+            ->filter(function ($rate) {
+                $c = strtolower($rate->courier);
+                $s = strtolower($rate->service_code);
+                return ($c === 'jne' && $s === 'reg') || ($c === 'jnt' && $s === 'ez');
+            });
 
         // 2. Group by courier + service_code, prioritizing province-specific rates over '*'
         $grouped = [];
@@ -108,19 +114,31 @@ class ShippingRateService
         $options = [];
         foreach ($grouped as $rate) {
             $cost = max((float) $rate->min_cost, (float) ($rate->cost_per_kg * $weightKg));
+            $courierKey = strtolower($rate->courier);
+
+            $courierName = $courierKey === 'jne' ? 'JNE Express' : 'J&T Express';
+            $serviceCode = $courierKey === 'jne' ? 'reg' : 'ez';
+            $serviceName = $courierKey === 'jne' ? 'REG (Regular)' : 'EZ (Reguler)';
+            $methodName = "{$courierName} — {$serviceName}";
 
             $options[] = [
-                'courier' => strtolower($rate->courier),
-                'courier_name' => $rate->courier_name,
-                'service_code' => strtolower($rate->service_code),
-                'service_name' => $rate->service_name,
-                'shipping_method' => "{$rate->courier_name} - {$rate->service_name}",
+                'courier' => $courierKey,
+                'courier_name' => $courierName,
+                'service_code' => $serviceCode,
+                'service_name' => $serviceName,
+                'shipping_method' => $methodName,
                 'cost' => $cost,
                 'etd' => $rate->etd,
                 'total_weight' => $totalWeightGrams,
                 'weight_kg' => $weightKg,
             ];
         }
+
+        // Sort: 1. JNE Express — REG (Regular), 2. J&T Express — EZ (Reguler)
+        usort($options, function ($a, $b) {
+            $sortOrder = ['jne' => 1, 'jnt' => 2];
+            return ($sortOrder[$a['courier']] ?? 99) <=> ($sortOrder[$b['courier']] ?? 99);
+        });
 
         return array_values($options);
     }
@@ -167,13 +185,19 @@ class ShippingRateService
         }
 
         $cost = max((float) $selectedRate->min_cost, (float) ($selectedRate->cost_per_kg * $weightKg));
+        $courierKey = strtolower($selectedRate->courier);
+
+        $courierName = $courierKey === 'jne' ? 'JNE Express' : ($courierKey === 'jnt' ? 'J&T Express' : $selectedRate->courier_name);
+        $serviceCode = $courierKey === 'jne' ? 'reg' : ($courierKey === 'jnt' ? 'ez' : $selectedRate->service_code);
+        $serviceName = $courierKey === 'jne' ? 'REG (Regular)' : ($courierKey === 'jnt' ? 'EZ (Reguler)' : $selectedRate->service_name);
+        $methodName = "{$courierName} — {$serviceName}";
 
         return [
-            'courier' => $selectedRate->courier,
-            'courier_name' => $selectedRate->courier_name,
-            'service_code' => $selectedRate->service_code,
-            'service_name' => $selectedRate->service_name,
-            'shipping_method' => "{$selectedRate->courier_name} - {$selectedRate->service_name}",
+            'courier' => $courierKey,
+            'courier_name' => $courierName,
+            'service_code' => $serviceCode,
+            'service_name' => $serviceName,
+            'shipping_method' => $methodName,
             'cost' => $cost,
             'etd' => $selectedRate->etd,
             'total_weight' => $totalWeightGrams,

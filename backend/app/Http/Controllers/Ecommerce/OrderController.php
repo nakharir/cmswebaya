@@ -330,10 +330,6 @@ class OrderController extends Controller
                     $courierInput = 'jne';
                 } elseif (str_contains($rawMethod, 'jnt') || str_contains($rawMethod, 'j&t')) {
                     $courierInput = 'jnt';
-                } elseif (str_contains($rawMethod, 'sicepat')) {
-                    $courierInput = 'sicepat';
-                } elseif (str_contains($rawMethod, 'pos')) {
-                    $courierInput = 'pos';
                 } else {
                     $courierInput = $rawMethod;
                 }
