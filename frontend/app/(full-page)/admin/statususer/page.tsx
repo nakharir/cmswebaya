@@ -49,7 +49,9 @@ const Statuspage = () => {
     const allUserSidebar = async () => {
       try {
         const response = await axios.get(API_ENDPOINTS.GETSIDEBAR);
-        const fetchedUsers = Array.isArray(response.data) ? response.data : [];
+        const fetchedUsers = Array.isArray(response.data)
+          ? response.data.filter((u: User) => Number(u.status) === 1 || Number(u.status) === 2)
+          : [];
         setUsers(fetchedUsers);
       } catch (error) {
         console.error("Error fetching sidebars:", error);
@@ -171,9 +173,9 @@ const Statuspage = () => {
   );
 
   const statusOptions = [
-    { label: "Visitor", value: 3 },
+    { label: "Customer", value: 0 },
+    { label: "Superadmin", value: 1 },
     { label: "Admin", value: 2 },
-    { label: "SuperAdmin", value: 1 },
   ];
 
   const handleUpdateUser = async (e: React.FormEvent) => {
@@ -269,10 +271,10 @@ const Statuspage = () => {
           body={(rowData) => (
             <div>
               {rowData.status === 1
-                ? "SuperAdmin"
+                ? "Superadmin"
                 : rowData.status === 2
-                ? "Operator"
-                : "Marketing"}
+                ? "Admin"
+                : "Customer"}
             </div>
           )}
         />

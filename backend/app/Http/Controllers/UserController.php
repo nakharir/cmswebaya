@@ -43,10 +43,33 @@ class UserController extends Controller
 
     public function update(Request $req, $id)
     {
-        $user = User::find($id);
-        $user->name = $req->input('name');
-        $user->email = $req->input('email');
-        $user->status = $req->input('status');
+        $user = User::findOrFail($id);
+
+        $req->validate([
+            'status' => 'nullable|integer|in:0,1,2',
+        ]);
+
+        $authUser = $req->user('sanctum') ?? $req->user();
+
+        // Validasi hak akses: hanya Superadmin (status = 1) yang dapat mengubah role
+        if ($req->has('status') && $req->input('status') !== null) {
+            $newStatus = (int) $req->input('status');
+            if ($newStatus !== (int) $user->status) {
+                if (!$authUser || (int) $authUser->status !== 1) {
+                    return response()->json([
+                        'message' => 'Hanya Superadmin yang dapat mengubah role pengguna.',
+                    ], 403);
+                }
+                $user->status = $newStatus;
+            }
+        }
+
+        if ($req->has('name')) {
+            $user->name = $req->input('name');
+        }
+        if ($req->has('email')) {
+            $user->email = $req->input('email');
+        }
         
         $sidebars = $req->input('sidebars');
     
@@ -101,8 +124,8 @@ class UserController extends Controller
 
     public function getAllUsers()
     {
-        // Fetch all users from the User table
-        $users = User::all();
+        // Fetch users from the User table (Superadmin dan Admin, tanpa Customer)
+        $users = User::whereIn('status', [1, 2])->get();
         $users = $users->map(function ($user) {
             if (is_string($user->sidebars)) {
                 $user->sidebars = json_decode($user->sidebars, true);
@@ -213,7 +236,8 @@ class UserController extends Controller
     }
 
     /**
-     * Mengambil daftar akun admin (status = 1 SuperAdmin atau status = 2 Admin)
+     * Mengambil daftar akun admin (status = 1 Superadmin atau status = 2 Admin)
+     * Customer (status = 0) tidak ditampilkan pada daftar Kelola User
      */
     public function getOperators(Request $request)
     {
@@ -226,7 +250,7 @@ class UserController extends Controller
                 ], 403);
             }
 
-            // Query hanya mengambil akun yang sesuai dengan definisi role admin pada sistem (status 1 & 2)
+            // Hanya mengambil akun Superadmin (status = 1) dan Admin (status = 2)
             $admins = User::whereIn('status', [1, 2])
                 ->orderBy('id', 'asc')
                 ->get()
@@ -241,7 +265,7 @@ class UserController extends Controller
     }
 
     /**
-     * Menambahkan akun admin baru
+     * Menambahkan akun admin / pengguna baru
      */
     public function addOperator(Request $request)
     {
@@ -259,7 +283,7 @@ class UserController extends Controller
                 'password' => 'required|string|min:6',
                 'phone' => 'nullable|string|max:255',
                 'address' => 'nullable|string|max:255',
-                'status' => 'nullable|integer',
+                'status' => 'nullable|integer|in:0,1,2',
             ]);
 
             $admin = new User;
@@ -269,9 +293,9 @@ class UserController extends Controller
             $admin->phone = $request->input('phone');
             $admin->address = $request->input('address');
 
-            // Default status ke 2 (Admin) jika tidak ditentukan, atau pastikan status berada pada role admin (1 atau 2)
-            $status = (int) $request->input('status', 2);
-            $admin->status = in_array($status, [1, 2], true) ? $status : 2;
+            // Default status ke 2 (Admin) jika tidak ditentukan, atau pastikan status berada pada pilihan role (0, 1, 2)
+            $status = $request->has('status') && $request->input('status') !== null ? (int) $request->input('status') : 2;
+            $admin->status = in_array($status, [0, 1, 2], true) ? $status : 2;
 
             $sidebars = [];
             if (class_exists('App\Models\Sidebar')) {
@@ -298,7 +322,7 @@ class UserController extends Controller
     }
 
     /**
-     * Memperbarui data admin
+     * Memperbarui data akun pengguna / admin
      */
     public function updateOperator(Request $request, $id)
     {
@@ -318,8 +342,21 @@ class UserController extends Controller
                 'password' => 'nullable|string|min:6',
                 'phone' => 'nullable|string|max:255',
                 'address' => 'nullable|string|max:255',
-                'status' => 'nullable|integer',
+                'status' => 'nullable|integer|in:0,1,2',
             ]);
+
+            // Validasi hak akses khusus untuk perubahan role (hanya Superadmin dengan status = 1)
+            if ($request->has('status') && $request->input('status') !== null) {
+                $newStatus = (int) $request->input('status');
+                if ($newStatus !== (int) $admin->status) {
+                    if (!$authUser || (int) $authUser->status !== 1) {
+                        return response()->json([
+                            'message' => 'Hanya Superadmin yang dapat mengubah role pengguna.',
+                        ], 403);
+                    }
+                    $admin->status = $newStatus;
+                }
+            }
 
             $admin->name = $validated['name'];
             $admin->email = $validated['email'];
@@ -328,13 +365,6 @@ class UserController extends Controller
             }
             $admin->phone = $request->input('phone');
             $admin->address = $request->input('address');
-
-            if ($request->has('status')) {
-                $status = (int) $request->input('status');
-                if (in_array($status, [1, 2], true)) {
-                    $admin->status = $status;
-                }
-            }
 
             $admin->save();
 
